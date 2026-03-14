@@ -1,6 +1,21 @@
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import {
+  Flag,
+  User,
+  CheckCircle,
+  CreditCard,
+  Footprints,
+  Music,
+  Wine,
+  Cigarette,
+  Search,
+  PlusCircle,
+  CalendarDays,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
 import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
 import ProfileSetup from "./ProfileSetup";
@@ -22,7 +37,7 @@ const MOCK_TEE_TIMES = [
     id: "tt1",
     hostName: "Chris H.",
     hostHandicap: 8.2,
-    hostAvatar: "🧢",
+    hostAvatar: null,
     hostVerified: true,
     course: "Gaylord Springs",
     date: "Sat, Mar 14",
@@ -39,15 +54,15 @@ const MOCK_TEE_TIMES = [
     groupHandicapRange: "6-14",
     note: "Playing from the tips. Competitive but friendly. $10 nassau if you're in.",
     applicants: [
-      { id: "a1", name: "Tyler R.", handicap: 18.7, avatar: "🍺", verified: true, note: "Down for the nassau. Might need a few strokes though!", preferences: { riding: true, music: false, drinking: true } },
-      { id: "a2", name: "David K.", handicap: 11.4, avatar: "🎯", verified: true, note: "Love Gaylord Springs. Consistent ball striker, won't slow you down.", preferences: { riding: true, music: false, drinking: false } },
+      { id: "a1", name: "Tyler R.", handicap: 18.7, avatar: null, verified: true, note: "Down for the nassau. Might need a few strokes though!", preferences: { riding: true, music: false, drinking: true } },
+      { id: "a2", name: "David K.", handicap: 11.4, avatar: null, verified: true, note: "Love Gaylord Springs. Consistent ball striker, won't slow you down.", preferences: { riding: true, music: false, drinking: false } },
     ],
   },
   {
     id: "tt2",
     hostName: "Jordan E.",
     hostHandicap: 14.5,
-    hostAvatar: "⛳",
+    hostAvatar: null,
     hostVerified: true,
     course: "McCabe Golf Course",
     date: "Sun, Mar 15",
@@ -69,7 +84,7 @@ const MOCK_TEE_TIMES = [
     id: "tt3",
     hostName: "Marcus W.",
     hostHandicap: 3.1,
-    hostAvatar: "🏆",
+    hostAvatar: null,
     hostVerified: true,
     course: "The Grove",
     date: "Mon, Mar 16",
@@ -86,7 +101,7 @@ const MOCK_TEE_TIMES = [
     groupHandicapRange: "0-8",
     note: "Serious round. Walking only, no distractions. Looking for a single digit who can keep pace.",
     applicants: [
-      { id: "a3", name: "Ryan O.", handicap: 6.0, avatar: "🌅", verified: true, note: "6 handicap, walk every round. Let's compete.", preferences: { riding: false, music: false, drinking: false } },
+      { id: "a3", name: "Ryan O.", handicap: 6.0, avatar: null, verified: true, note: "6 handicap, walk every round. Let's compete.", preferences: { riding: false, music: false, drinking: false } },
     ],
   },
 ];
@@ -125,14 +140,22 @@ function Badge({ children, color = C.gold, style: sx = {} }) {
   );
 }
 
-function PrefIcon({ active, label, emoji }) {
+function AvatarIcon({ size = 22, color = C.gold, style: sx = {} }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", ...sx }}>
+      <User size={size} color={color} strokeWidth={2} />
+    </div>
+  );
+}
+
+function PrefIcon({ active, label, icon: Icon, emoji }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 5,
       opacity: active ? 1 : 0.25,
       fontFamily: font.body, fontSize: 12, color: C.creamDim,
     }}>
-      <span style={{ fontSize: 14 }}>{emoji}</span>
+      {emoji ? <span style={{ fontSize: 14 }}>{emoji}</span> : <Icon size={14} color={C.creamDim} strokeWidth={2} />}
       <span>{label}</span>
     </div>
   );
@@ -145,7 +168,10 @@ function VerifiedBadge() {
       fontFamily: font.body, fontSize: 10, fontWeight: 600,
       color: C.green, background: C.greenDim,
       borderRadius: 4, padding: "2px 7px", letterSpacing: 0.5,
-    }}>✓ Verified</span>
+    }}>
+      <CheckCircle size={10} color={C.green} />
+      Verified
+    </span>
   );
 }
 
@@ -177,11 +203,11 @@ function ActionButton({ children, primary, danger, small, onClick, disabled, sty
 // ── Tee Time Card ──────────────────────────
 function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
   const prefs = [
-    { key: "riding", emoji: "🛒", label: "Cart" },
-    { key: "walking", emoji: "🚶", label: "Walk" },
-    { key: "music", emoji: "🎵", label: "Music" },
-    { key: "drinking", emoji: "🍺", label: "Drinks" },
-    { key: "smoking", emoji: "🚬", label: "Smoke" },
+    { key: "riding", emoji: "🛺", label: "Cart" },
+    { key: "walking", icon: Footprints, label: "Walk" },
+    { key: "music", icon: Music, label: "Music" },
+    { key: "drinking", icon: Wine, label: "Drinks" },
+    { key: "smoking", icon: Cigarette, label: "Smoke" },
   ];
 
   return (
@@ -202,8 +228,10 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 14, background: C.goldFaint,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-          }}>{t.hostAvatar}</div>
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <AvatarIcon size={22} color={C.gold} />
+          </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontFamily: font.display, fontSize: 17, fontWeight: 700, color: C.cream }}>{t.hostName}</span>
@@ -228,8 +256,11 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
         </div>
 
         <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
-          {prefs.map(p => <PrefIcon key={p.key} active={t[p.key]} label={p.label} emoji={p.emoji} />)}
-          <div style={{ fontFamily: font.body, fontSize: 12, color: C.goldDim, display: "flex", alignItems: "center", gap: 4 }}>⏱ {t.pace}</div>
+          {prefs.map(p => <PrefIcon key={p.key} active={t[p.key]} label={p.label} icon={p.icon} emoji={p.emoji} />)}
+          <div style={{ fontFamily: font.body, fontSize: 12, color: C.goldDim, display: "flex", alignItems: "center", gap: 4 }}>
+            <Clock size={12} color={C.goldDim} style={{ flexShrink: 0 }} />
+            {t.pace}
+          </div>
         </div>
 
         {t.note && (
@@ -279,7 +310,7 @@ function HostFlow({ profile, onPost }) {
         <h2 style={{ fontFamily: font.display, fontSize: 26, color: C.cream, margin: "0 0 20px", fontWeight: 700 }}>Preview</h2>
         <TeeTimeCard teeTime={{
           ...form, id: "new", hostName: profile.name, hostHandicap: profile.handicap,
-          hostAvatar: profile.avatar ?? "🏌️", hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
+          hostAvatar: null, hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
           date: form.date ? new Date(form.date + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—",
           time: form.time || "—",
         }} />
@@ -343,22 +374,26 @@ function HostFlow({ profile, onPost }) {
       <SectionLabel>Group Vibe</SectionLabel>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
         {[
-          { key: "riding", label: "Riding", emoji: "🛒" },
-          { key: "walking", label: "Walking", emoji: "🚶" },
-          { key: "music", label: "Music OK", emoji: "🎵" },
-          { key: "drinking", label: "Drinking", emoji: "🍺" },
-          { key: "smoking", label: "Smoking", emoji: "🚬" },
-        ].map(p => (
-          <button key={p.key} onClick={() => update(p.key, !form[p.key])} style={{
-            display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10,
-            fontFamily: font.body, fontSize: 14,
-            border: form[p.key] ? `1.5px solid ${C.gold}50` : `1px solid rgba(168,148,96,0.12)`,
-            background: form[p.key] ? C.goldFaint : "transparent",
-            color: form[p.key] ? C.cream : C.creamDim, cursor: "pointer", transition: "all 0.2s",
-          }}>
-            <span>{p.emoji}</span> {p.label}
-          </button>
-        ))}
+          { key: "riding", label: "Riding", emoji: "🛺" },
+          { key: "walking", label: "Walking", icon: Footprints },
+          { key: "music", label: "Music OK", icon: Music },
+          { key: "drinking", label: "Drinking", icon: Wine },
+          { key: "smoking", label: "Smoking", icon: Cigarette },
+        ].map(p => {
+          const Icon = p.icon;
+          return (
+            <button key={p.key} onClick={() => update(p.key, !form[p.key])} style={{
+              display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10,
+              fontFamily: font.body, fontSize: 14,
+              border: form[p.key] ? `1.5px solid ${C.gold}50` : `1px solid rgba(168,148,96,0.12)`,
+              background: form[p.key] ? C.goldFaint : "transparent",
+              color: form[p.key] ? C.cream : C.creamDim, cursor: "pointer", transition: "all 0.2s",
+            }}>
+              {p.emoji ? <span style={{ fontSize: 16 }}>{p.emoji}</span> : <Icon size={16} color="currentColor" strokeWidth={2} />}
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       <SectionLabel>Pace & Skill</SectionLabel>
@@ -406,7 +441,9 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
 
       {teeTime.applicants.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🏌️</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <Flag size={40} color={C.goldDim} strokeWidth={1.5} />
+          </div>
           <div style={{ fontFamily: font.body, fontSize: 15, color: C.goldDim }}>No applicants yet</div>
         </div>
       ) : (
@@ -416,8 +453,10 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                 <div style={{
                   width: 50, height: 50, borderRadius: 16, background: C.goldFaint,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
-                }}>{a.avatar}</div>
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <User size={26} color={C.gold} strokeWidth={2} />
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontFamily: font.display, fontSize: 18, fontWeight: 700, color: C.cream }}>{a.name}</span>
@@ -425,7 +464,9 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
                   </div>
                   <span style={{ fontFamily: font.body, fontSize: 13, color: C.goldDim }}>{a.handicap} HCP</span>
                 </div>
-                <Badge color={C.green} style={{ fontSize: 10 }}>💳 Linked</Badge>
+                <Badge color={C.green} style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                  <CreditCard size={10} /> Linked
+                </Badge>
               </div>
               {a.note && <p style={{ fontFamily: font.body, fontSize: 14, lineHeight: 1.5, color: C.creamDim, margin: "0 0 14px", fontStyle: "italic" }}>"{a.note}"</p>}
               <div style={{ display: "flex", gap: 10 }}>
@@ -460,7 +501,9 @@ function BrowseFeed({ profile, teeTimes, onApply }) {
             marginTop: 20, padding: 20, borderRadius: 16,
             background: C.greenDim, border: `1px solid ${C.green}20`, textAlign: "center",
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <CheckCircle size={32} color={C.green} strokeWidth={2} />
+            </div>
             <div style={{ fontFamily: font.display, fontSize: 18, color: C.green, fontWeight: 700 }}>Request Sent</div>
             <div style={{ fontFamily: font.body, fontSize: 13, color: C.creamDim, marginTop: 4 }}>{t.hostName} will review and get back to you</div>
           </div>
@@ -471,12 +514,16 @@ function BrowseFeed({ profile, teeTimes, onApply }) {
               display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "10px 14px",
               borderRadius: 10, background: C.goldFaint, border: `1px solid ${C.gold}15`,
             }}>
-              <span style={{ fontSize: 16 }}>🏌️</span>
+              <User size={20} color={C.gold} strokeWidth={2} />
               <div>
                 <span style={{ fontFamily: font.body, fontSize: 14, fontWeight: 600, color: C.cream }}>{profile.name}</span>
                 <span style={{ fontFamily: font.body, fontSize: 12, color: C.goldDim, marginLeft: 8 }}>{profile.handicap} HCP</span>
               </div>
-              <div style={{ marginLeft: "auto" }}><Badge color={C.green} style={{ fontSize: 10 }}>💳 {profile.paymentMethod ?? "Not linked"}</Badge></div>
+              <div style={{ marginLeft: "auto" }}>
+                <Badge color={C.green} style={{ fontSize: 10, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <CreditCard size={10} /> {profile.paymentMethod ?? "Not linked"}
+                </Badge>
+              </div>
             </div>
             <textarea value={applyNote} onChange={e => setApplyNote(e.target.value)}
               placeholder="Introduce yourself to the group..."
@@ -512,7 +559,9 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
   if (teeTimes.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "80px 24px" }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⛳</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <CalendarDays size={48} color={C.goldDim} strokeWidth={1.5} />
+        </div>
         <div style={{ fontFamily: font.display, fontSize: 20, color: C.cream, marginBottom: 6 }}>No tee times posted</div>
         <div style={{ fontFamily: font.body, fontSize: 14, color: C.goldDim }}>Post a tee time to start finding players</div>
       </div>
@@ -531,7 +580,6 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
 // ── Profile ────────────────────────────────
 function ProfileScreen({ profile, onSignOut }) {
   const u = {
-    avatar: profile.avatar ?? "🏌️",
     name: profile.name,
     location: profile.location ?? "Nashville, TN",
     paymentMethod: profile.paymentMethod ?? "Not linked",
@@ -550,12 +598,16 @@ function ProfileScreen({ profile, onSignOut }) {
           border: `2px solid ${C.gold}25`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 44, margin: "0 auto 14px",
-        }}>{u.avatar}</div>
+        }}>
+          <User size={44} color={C.gold} strokeWidth={2} />
+        </div>
         <div style={{ fontFamily: font.display, fontSize: 28, fontWeight: 700, color: C.cream }}>{u.name}</div>
         <div style={{ fontFamily: font.body, fontSize: 13, color: C.goldDim, marginTop: 3 }}>{u.location}</div>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
           {profile.verified && <VerifiedBadge />}
-          <Badge color={u.paymentMethod !== "Not linked" ? C.green : C.goldDim}>💳 {u.paymentMethod}{u.paymentMethod !== "Not linked" ? " Linked" : ""}</Badge>
+          <Badge color={u.paymentMethod !== "Not linked" ? C.green : C.goldDim} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <CreditCard size={10} /> {u.paymentMethod}{u.paymentMethod !== "Not linked" ? " Linked" : ""}
+          </Badge>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
@@ -577,11 +629,11 @@ function ProfileScreen({ profile, onSignOut }) {
       <div style={{ padding: "16px 18px", borderRadius: 14, background: C.goldFaint, border: `1px solid ${C.cardBorder}`, marginBottom: 24 }}>
         <SectionLabel>Preferences</SectionLabel>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          <PrefIcon active={u.preferences.riding} emoji="🛒" label="Cart" />
-          <PrefIcon active={u.preferences.walking} emoji="🚶" label="Walk" />
-          <PrefIcon active={u.preferences.music} emoji="🎵" label="Music" />
-          <PrefIcon active={u.preferences.drinking} emoji="🍺" label="Drinks" />
-          <PrefIcon active={u.preferences.smoking} emoji="🚬" label="Smoke" />
+          <PrefIcon active={u.preferences.riding} emoji="🛺" label="Cart" />
+          <PrefIcon active={u.preferences.walking} icon={Footprints} label="Walk" />
+          <PrefIcon active={u.preferences.music} icon={Music} label="Music" />
+          <PrefIcon active={u.preferences.drinking} icon={Wine} label="Drinks" />
+          <PrefIcon active={u.preferences.smoking} icon={Cigarette} label="Smoke" />
         </div>
       </div>
       {["Edit Profile", "Payment Methods", "Notification Settings", "Round History", "Help & Support"].map(item => (
@@ -590,7 +642,7 @@ function ProfileScreen({ profile, onSignOut }) {
           padding: "15px 2px", borderBottom: `1px solid ${C.cardBorder}`, cursor: "pointer",
         }}>
           <span style={{ fontFamily: font.body, fontSize: 15, color: C.creamDim }}>{item}</span>
-          <span style={{ color: `${C.gold}40`, fontSize: 14 }}>›</span>
+          <ChevronRight size={14} color={`${C.gold}40`} />
         </div>
       ))}
       <div style={{ marginTop: 24 }}>
@@ -663,7 +715,7 @@ export default function App() {
     const newTT = {
       ...form, id: `my-${Date.now()}`,
       hostName: profile.name, hostHandicap: profile.handicap,
-      hostAvatar: profile.avatar ?? "🏌️", hostVerified: true,
+      hostAvatar: null, hostVerified: true,
       spotsTotal: form.spotsOpen + 1, applicants: [],
       date: form.date ? new Date(form.date + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—",
       time: form.time ? new Date(`2000-01-01T${form.time}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—",
@@ -730,10 +782,10 @@ export default function App() {
   }
 
   const tabs = [
-    { id: "browse", icon: "🔍", label: "Browse" },
-    { id: "post", icon: "➕", label: "Post" },
-    { id: "myTimes", icon: "📋", label: "My Times" },
-    { id: "profile", icon: "👤", label: "Profile" },
+    { id: "browse", icon: Search, label: "Browse" },
+    { id: "post", icon: PlusCircle, label: "Post" },
+    { id: "myTimes", icon: CalendarDays, label: "My Times" },
+    { id: "profile", icon: User, label: "Profile" },
   ];
 
   return (
@@ -748,7 +800,7 @@ export default function App() {
           borderBottom: `1px solid ${C.cardBorder}`,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <span style={{ fontSize: 20 }}>⛳</span>
+            <Flag size={22} color={C.gold} strokeWidth={2} />
             <span style={{ fontFamily: font.display, fontSize: 21, fontWeight: 700, color: C.gold, letterSpacing: -0.5 }}>Swingers</span>
           </div>
           <div style={{ fontFamily: font.heading, fontSize: 10, letterSpacing: 2, color: C.goldDim, textTransform: "uppercase" }}>Nashville</div>
@@ -770,19 +822,22 @@ export default function App() {
           borderTop: `1px solid ${C.cardBorder}`,
           background: C.bg, position: "sticky", bottom: 0,
         }}>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); }} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              background: "none", border: "none", cursor: "pointer", padding: "4px 14px",
-              opacity: tab === t.id ? 1 : 0.35, transition: "opacity 0.2s",
-            }}>
-              <span style={{ fontSize: 20 }}>{t.icon}</span>
-              <span style={{
+          {tabs.map(t => {
+            const TabIcon = t.icon;
+            return (
+              <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); }} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                background: "none", border: "none", cursor: "pointer", padding: "4px 14px",
+                opacity: tab === t.id ? 1 : 0.35, transition: "opacity 0.2s",
+              }}>
+                <TabIcon size={20} color={tab === t.id ? C.gold : C.goldDim} strokeWidth={2} />
+                <span style={{
                 fontFamily: font.heading, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase",
                 color: tab === t.id ? C.gold : C.goldDim,
               }}>{t.label}</span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 

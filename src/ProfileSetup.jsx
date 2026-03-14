@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
+import { Flag, Footprints, Music, Wine, Cigarette } from "lucide-react";
 import { db } from "./firebase";
 
 const C = {
@@ -82,7 +83,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
         handicap: handicapNum,
         homeCourse,
         preferences,
-        avatar: "🏌️",
+        avatar: null,
         location: "Nashville, TN",
         verified: false,
         paymentLinked: false,
@@ -102,11 +103,11 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
   };
 
   const prefs = [
-    { key: "riding", label: "Riding", emoji: "🛒" },
-    { key: "walking", label: "Walking", emoji: "🚶" },
-    { key: "music", label: "Music OK", emoji: "🎵" },
-    { key: "drinking", label: "Drinking", emoji: "🍺" },
-    { key: "smoking", label: "Smoking", emoji: "🚬" },
+    { key: "riding", label: "Riding", emoji: "🛺" },
+    { key: "walking", label: "Walking", icon: Footprints },
+    { key: "music", label: "Music OK", icon: Music },
+    { key: "drinking", label: "Drinking", icon: Wine },
+    { key: "smoking", label: "Smoking", icon: Cigarette },
   ];
 
   return (
@@ -133,7 +134,9 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <span style={{ fontSize: 40 }}>⛳</span>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+            <Flag size={40} color={C.gold} strokeWidth={2} />
+          </div>
           <h1
             style={{
               fontFamily: font.display,
@@ -188,29 +191,33 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
 
           <SectionLabel>Preferences</SectionLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-            {prefs.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => togglePref(p.key)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  fontFamily: font.body,
-                  fontSize: 14,
-                  border: preferences[p.key] ? `1.5px solid ${C.gold}50` : `1px solid rgba(168,148,96,0.12)`,
-                  background: preferences[p.key] ? C.goldFaint : "transparent",
-                  color: preferences[p.key] ? C.cream : C.creamDim,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-              >
-                <span>{p.emoji}</span> {p.label}
-              </button>
-            ))}
+            {prefs.map((p) => {
+              const Icon = p.icon;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => togglePref(p.key)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "10px 16px",
+                    borderRadius: 10,
+                    fontFamily: font.body,
+                    fontSize: 14,
+                    border: preferences[p.key] ? `1.5px solid ${C.gold}50` : `1px solid rgba(168,148,96,0.12)`,
+                    background: preferences[p.key] ? C.goldFaint : "transparent",
+                    color: preferences[p.key] ? C.cream : C.creamDim,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {p.emoji ? <span style={{ fontSize: 16 }}>{p.emoji}</span> : <Icon size={16} color="currentColor" strokeWidth={2} />}
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
 
           {error && (

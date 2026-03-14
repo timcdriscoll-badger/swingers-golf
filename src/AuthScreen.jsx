@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
+import { Flag } from "lucide-react";
 import { auth } from "./firebase";
 
 // Reuse app styling constants
@@ -102,7 +103,9 @@ export default function AuthScreen() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <span style={{ fontSize: 40 }}>⛳</span>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+            <Flag size={40} color={C.gold} strokeWidth={2} />
+          </div>
           <h1
             style={{
               fontFamily: font.display,
