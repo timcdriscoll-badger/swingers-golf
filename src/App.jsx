@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -777,7 +777,7 @@ export default function App() {
       handicap: profile.handicap,
       paymentMethod: profile.paymentMethod ?? "Not linked",
       note: note ?? "",
-      createdAt: serverTimestamp(),
+      createdAt: new Date().toISOString(),
     };
     try {
       await updateDoc(doc(db, "teeTimes", teeTimeId), {
