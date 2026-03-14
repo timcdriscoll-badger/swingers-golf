@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -415,8 +415,8 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
                   </div>
                   <span style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim }}>{a.handicap} HCP</span>
                 </div>
-                <Badge color={C.green} style={{ fontSize: type.overline, display: "flex", alignItems: "center", gap: 4 }}>
-                  <CreditCard size={10} /> Linked
+                <Badge color={(a.paymentMethod && a.paymentMethod !== "Not linked") ? C.green : C.goldDim} style={{ fontSize: type.overline, display: "flex", alignItems: "center", gap: 4 }}>
+                  <CreditCard size={10} /> {a.paymentMethod && a.paymentMethod !== "Not linked" ? "Linked" : a.paymentMethod ?? "—"}
                 </Badge>
               </div>
               {a.note && <p style={{ fontFamily: font.body, fontSize: type.body, lineHeight: 1.6, color: C.creamDim, margin: `0 0 ${space.sm}px`, fontStyle: "italic" }}>"{a.note}"</p>}
@@ -433,7 +433,7 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
 }
 
 // ── Browse Feed (Player Side) ──────────────
-function BrowseFeed({ profile, teeTimes, loading, onApply, onPostFirst }) {
+function BrowseFeed({ userId, profile, teeTimes, loading, onApply, onPostFirst }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
@@ -479,7 +479,7 @@ function BrowseFeed({ profile, teeTimes, loading, onApply, onPostFirst }) {
           background: "none", border: "none", cursor: "pointer", marginBottom: space.md, padding: 0,
         }}>← Back to Tee Times</button>
         <TeeTimeCard teeTime={t} />
-        {applied[t.id] ? (
+        {(applied[t.id] || (userId && (t.applicants ?? []).some((a) => a.userId === userId))) ? (
           <div style={{
             marginTop: space.lg, padding: space.lg, borderRadius: 20,
             background: C.greenDim, border: `1px solid rgba(74,222,128,0.15)`, textAlign: "center",
@@ -515,7 +515,7 @@ function BrowseFeed({ profile, teeTimes, loading, onApply, onPostFirst }) {
                 border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: "14px 18px",
                 width: "100%", outline: "none", boxSizing: "border-box", resize: "none", marginBottom: space.md,
               }} />
-            <ActionButton primary onClick={() => { setApplied(a => ({ ...a, [t.id]: true })); onApply(t.id, applyNote); }} style={{ width: "100%" }}>
+            <ActionButton primary onClick={async () => { setApplied(a => ({ ...a, [t.id]: true })); await onApply(t.id, applyNote); }} style={{ width: "100%" }}>
               Request to Play
             </ActionButton>
           </div>
@@ -763,8 +763,30 @@ export default function App() {
     }
   };
 
-  const handleApply = (teeTimeId, note) => {
-    showToast("Request sent! The host will review your application.");
+  const handleApply = async (teeTimeId, note) => {
+    const t = teeTimes.find((x) => x.id === teeTimeId);
+    if (!t) return;
+    if ((t.applicants ?? []).some((a) => a.userId === user.uid)) {
+      showToast("You've already applied to this tee time.", "error");
+      return;
+    }
+    const newApplicant = {
+      id: user.uid,
+      userId: user.uid,
+      name: profile.name,
+      handicap: profile.handicap,
+      paymentMethod: profile.paymentMethod ?? "Not linked",
+      note: note ?? "",
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await updateDoc(doc(db, "teeTimes", teeTimeId), {
+        applicants: [...(t.applicants ?? []), newApplicant],
+      });
+      showToast("Request sent! The host will review your application.");
+    } catch (err) {
+      showToast(err.message || "Failed to send request.", "error");
+    }
   };
 
   const handleAccept = async (teeTimeId, applicantId) => {
@@ -862,6 +884,7 @@ export default function App() {
         <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {tab === "browse" && (
               <BrowseFeed
+                userId={user?.uid}
                 profile={profile}
                 teeTimes={teeTimes}
                 loading={teeTimesLoading}
