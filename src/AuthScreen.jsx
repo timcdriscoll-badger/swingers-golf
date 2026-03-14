@@ -11,16 +11,18 @@ import { auth } from "./firebase";
 const C = {
   bg: "#060e06",
   card: "#0c1a0c",
-  cardBorder: "rgba(168,148,96,0.1)",
+  cardBorder: "rgba(168,148,96,0.06)",
   gold: "#c4b482",
   goldDim: "rgba(168,148,96,0.5)",
-  goldFaint: "rgba(168,148,96,0.08)",
+  goldFaint: "rgba(168,148,96,0.06)",
   cream: "#f0ead6",
-  creamDim: "rgba(240,234,214,0.65)",
+  creamDim: "rgba(240,234,214,0.6)",
   green: "#4ade80",
   red: "#f87171",
   redDim: "rgba(248,113,113,0.1)",
 };
+
+const space = { sm: 12, md: 20, lg: 28, xl: 36 };
 
 const font = {
   display: "'Playfair Display', serif",
@@ -40,10 +42,10 @@ export default function AuthScreen() {
     fontFamily: font.body,
     fontSize: 15,
     color: C.cream,
-    background: "rgba(168,148,96,0.06)",
-    border: `1px solid rgba(168,148,96,0.15)`,
-    borderRadius: 10,
-    padding: "14px 16px",
+    background: C.goldFaint,
+    border: `1px solid ${C.cardBorder}`,
+    borderRadius: 12,
+    padding: "14px 18px",
     width: "100%",
     outline: "none",
     boxSizing: "border-box",
@@ -88,37 +90,37 @@ export default function AuthScreen() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: 24,
+        padding: space.xl,
         boxSizing: "border-box",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: 380,
+          maxWidth: 400,
           background: `linear-gradient(170deg, ${C.card} 0%, #081408 100%)`,
           border: `1px solid ${C.cardBorder}`,
-          borderRadius: 24,
-          padding: "32px 28px 28px",
+          borderRadius: 28,
+          padding: `${space.xl}px ${space.lg}px ${space.lg}px`,
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
-            <Flag size={40} color={C.gold} strokeWidth={2} />
+        <div style={{ textAlign: "center", marginBottom: space.xl }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+            <Flag size={44} color={C.gold} strokeWidth={2} />
           </div>
           <h1
             style={{
               fontFamily: font.display,
-              fontSize: 28,
-              fontWeight: 700,
+              fontSize: 30,
+              fontWeight: 600,
               color: C.gold,
-              margin: "12px 0 6px",
+              margin: "14px 0 8px",
               letterSpacing: -0.5,
             }}
           >
             Swingers
           </h1>
-          <p style={{ fontFamily: font.body, fontSize: 14, color: C.goldDim }}>
+          <p style={{ fontFamily: font.body, fontSize: 15, color: C.goldDim }}>
             Golf tee time marketplace
           </p>
         </div>
@@ -126,11 +128,11 @@ export default function AuthScreen() {
         <div
           style={{
             display: "flex",
-            gap: 8,
-            marginBottom: 24,
+            gap: 6,
+            marginBottom: space.lg,
             background: C.goldFaint,
-            borderRadius: 12,
-            padding: 4,
+            borderRadius: 14,
+            padding: 5,
           }}
         >
           <button
@@ -141,14 +143,14 @@ export default function AuthScreen() {
             }}
             style={{
               flex: 1,
-              padding: "10px 16px",
-              borderRadius: 10,
+              padding: "12px 18px",
+              borderRadius: 12,
               border: "none",
               fontFamily: font.heading,
               fontSize: 13,
-              letterSpacing: 1.5,
+              letterSpacing: 1.8,
               textTransform: "uppercase",
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: "pointer",
               background: mode === "login" ? C.gold : "transparent",
               color: mode === "login" ? C.bg : C.goldDim,
@@ -165,14 +167,14 @@ export default function AuthScreen() {
             }}
             style={{
               flex: 1,
-              padding: "10px 16px",
-              borderRadius: 10,
+              padding: "12px 18px",
+              borderRadius: 12,
               border: "none",
               fontFamily: font.heading,
               fontSize: 13,
-              letterSpacing: 1.5,
+              letterSpacing: 1.8,
               textTransform: "uppercase",
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: "pointer",
               background: mode === "signup" ? C.gold : "transparent",
               color: mode === "signup" ? C.bg : C.goldDim,
@@ -185,14 +187,15 @@ export default function AuthScreen() {
 
         <form onSubmit={handleSubmit}>
           {mode === "signup" && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: space.md }}>
               <label
                 style={{
                   fontFamily: font.body,
-                  fontSize: 12,
+                  fontSize: 11,
                   color: C.goldDim,
                   marginBottom: 6,
                   display: "block",
+                  letterSpacing: 0.5,
                 }}
               >
                 Display name
@@ -207,14 +210,15 @@ export default function AuthScreen() {
               />
             </div>
           )}
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: space.md }}>
             <label
               style={{
                 fontFamily: font.body,
-                fontSize: 12,
+                fontSize: 11,
                 color: C.goldDim,
                 marginBottom: 6,
                 display: "block",
+                letterSpacing: 0.5,
               }}
             >
               Email
@@ -229,14 +233,15 @@ export default function AuthScreen() {
               autoComplete={mode === "signup" ? "email" : "username"}
             />
           </div>
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: space.lg }}>
             <label
               style={{
                 fontFamily: font.body,
-                fontSize: 12,
+                fontSize: 11,
                 color: C.goldDim,
                 marginBottom: 6,
                 display: "block",
+                letterSpacing: 0.5,
               }}
             >
               Password
@@ -260,10 +265,10 @@ export default function AuthScreen() {
                 fontSize: 13,
                 color: C.red,
                 background: C.redDim,
-                border: `1px solid ${C.red}30`,
-                borderRadius: 10,
-                padding: "10px 14px",
-                marginBottom: 16,
+                border: `1px solid rgba(248,113,113,0.2)`,
+                borderRadius: 12,
+                padding: "12px 16px",
+                marginBottom: space.md,
               }}
             >
               {error}
@@ -275,14 +280,14 @@ export default function AuthScreen() {
             disabled={loading}
             style={{
               width: "100%",
-              padding: "14px 24px",
-              borderRadius: 12,
+              padding: "16px 28px",
+              borderRadius: 14,
               border: "none",
               fontFamily: font.heading,
               fontSize: 14,
               letterSpacing: 2,
               textTransform: "uppercase",
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
               background: `linear-gradient(135deg, ${C.gold}, #a89460)`,
               color: C.bg,

@@ -6,15 +6,17 @@ import { db } from "./firebase";
 const C = {
   bg: "#060e06",
   card: "#0c1a0c",
-  cardBorder: "rgba(168,148,96,0.1)",
+  cardBorder: "rgba(168,148,96,0.06)",
   gold: "#c4b482",
   goldDim: "rgba(168,148,96,0.5)",
-  goldFaint: "rgba(168,148,96,0.08)",
+  goldFaint: "rgba(168,148,96,0.06)",
   cream: "#f0ead6",
-  creamDim: "rgba(240,234,214,0.65)",
+  creamDim: "rgba(240,234,214,0.6)",
   red: "#f87171",
   redDim: "rgba(248,113,113,0.1)",
 };
+
+const space = { sm: 12, md: 20, lg: 28, xl: 36 };
 
 const font = {
   display: "'Playfair Display', serif",
@@ -25,8 +27,8 @@ const font = {
 function SectionLabel({ children }) {
   return (
     <div style={{
-      fontFamily: font.heading, fontSize: 10, letterSpacing: 2.5,
-      textTransform: "uppercase", color: C.goldDim, marginBottom: 10,
+      fontFamily: font.heading, fontSize: 10, letterSpacing: 2.8,
+      textTransform: "uppercase", color: C.goldDim, marginBottom: space.sm,
     }}>{children}</div>
   );
 }
@@ -49,10 +51,10 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
     fontFamily: font.body,
     fontSize: 15,
     color: C.cream,
-    background: "rgba(168,148,96,0.06)",
-    border: `1px solid rgba(168,148,96,0.15)`,
-    borderRadius: 10,
-    padding: "14px 16px",
+    background: C.goldFaint,
+    border: `1px solid ${C.cardBorder}`,
+    borderRadius: 12,
+    padding: "14px 18px",
     width: "100%",
     outline: "none",
     boxSizing: "border-box",
@@ -119,37 +121,37 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: 24,
+        padding: space.xl,
         boxSizing: "border-box",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: 380,
+          maxWidth: 400,
           background: `linear-gradient(170deg, ${C.card} 0%, #081408 100%)`,
           border: `1px solid ${C.cardBorder}`,
-          borderRadius: 24,
-          padding: "32px 28px 28px",
+          borderRadius: 28,
+          padding: `${space.xl}px ${space.lg}px ${space.lg}px`,
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
-            <Flag size={40} color={C.gold} strokeWidth={2} />
+        <div style={{ textAlign: "center", marginBottom: space.xl }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+            <Flag size={44} color={C.gold} strokeWidth={2} />
           </div>
           <h1
             style={{
               fontFamily: font.display,
-              fontSize: 26,
-              fontWeight: 700,
+              fontSize: 30,
+              fontWeight: 600,
               color: C.gold,
-              margin: "12px 0 6px",
+              margin: "14px 0 8px",
               letterSpacing: -0.5,
             }}
           >
             Set up your profile
           </h1>
-          <p style={{ fontFamily: font.body, fontSize: 14, color: C.goldDim }}>
+          <p style={{ fontFamily: font.body, fontSize: 15, color: C.goldDim }}>
             Tell other players a bit about you
           </p>
         </div>
@@ -161,7 +163,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="How you want to be called"
-            style={{ ...inputStyle, marginBottom: 20 }}
+            style={{ ...inputStyle, marginBottom: space.lg }}
             autoComplete="name"
           />
 
@@ -174,14 +176,14 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
             value={handicap}
             onChange={(e) => setHandicap(e.target.value)}
             placeholder="e.g. 12.0"
-            style={{ ...inputStyle, marginBottom: 20 }}
+            style={{ ...inputStyle, marginBottom: space.lg }}
           />
 
           <SectionLabel>Home course</SectionLabel>
           <select
             value={homeCourse}
             onChange={(e) => setHomeCourse(e.target.value)}
-            style={{ ...inputStyle, marginBottom: 24, appearance: "none", cursor: "pointer" }}
+            style={{ ...inputStyle, marginBottom: space.lg, appearance: "none", cursor: "pointer" }}
           >
             <option value="">Select a course...</option>
             {courses.map((c) => (
@@ -190,7 +192,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
           </select>
 
           <SectionLabel>Preferences</SectionLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.lg }}>
             {prefs.map((p) => {
               const Icon = p.icon;
               return (
@@ -201,12 +203,12 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 7,
-                    padding: "10px 16px",
-                    borderRadius: 10,
+                    gap: 8,
+                    padding: "12px 18px",
+                    borderRadius: 12,
                     fontFamily: font.body,
-                    fontSize: 14,
-                    border: preferences[p.key] ? `1.5px solid ${C.gold}50` : `1px solid rgba(168,148,96,0.12)`,
+                    fontSize: 15,
+                    border: preferences[p.key] ? `1px solid rgba(168,148,96,0.25)` : `1px solid ${C.cardBorder}`,
                     background: preferences[p.key] ? C.goldFaint : "transparent",
                     color: preferences[p.key] ? C.cream : C.creamDim,
                     cursor: "pointer",
@@ -227,10 +229,10 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
                 fontSize: 13,
                 color: C.red,
                 background: C.redDim,
-                border: `1px solid ${C.red}30`,
-                borderRadius: 10,
-                padding: "10px 14px",
-                marginBottom: 16,
+                border: `1px solid rgba(248,113,113,0.2)`,
+                borderRadius: 12,
+                padding: "12px 16px",
+                marginBottom: space.md,
               }}
             >
               {error}
@@ -242,14 +244,14 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
             disabled={loading}
             style={{
               width: "100%",
-              padding: "14px 24px",
-              borderRadius: 12,
+              padding: "16px 28px",
+              borderRadius: 14,
               border: "none",
               fontFamily: font.heading,
               fontSize: 14,
               letterSpacing: 2,
               textTransform: "uppercase",
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
               background: `linear-gradient(135deg, ${C.gold}, #a89460)`,
               color: C.bg,

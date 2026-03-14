@@ -3,13 +3,13 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCxXjlWKdRDLG48_MzCgbUxJnQRxb1l09g",
-  authDomain: "swingers-golf.firebaseapp.com",
-  projectId: "swingers-golf",
-  storageBucket: "swingers-golf.firebasestorage.app",
-  messagingSenderId: "396910778885",
-  appId: "1:396910778885:web:15855adb99457de0c29a6c",
-  measurementId: "G-528N10W8MV"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
