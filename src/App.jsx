@@ -1,4 +1,9 @@
 import { useState, useEffect } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./firebase";
+import AuthScreen from "./AuthScreen";
+import ProfileSetup from "./ProfileSetup";
 
 /* ═══════════════════════════════════════════
    SWINGERS — Golf Tee Time Marketplace
@@ -85,22 +90,6 @@ const MOCK_TEE_TIMES = [
     ],
   },
 ];
-
-const USER_PROFILE = {
-  name: "TJ",
-  handicap: 12.0,
-  avatar: "🏌️",
-  location: "Nashville, TN",
-  homeCourse: "Gaylord Springs",
-  verified: true,
-  paymentLinked: true,
-  paymentMethod: "Venmo",
-  preferences: { riding: true, walking: true, music: true, drinking: true, smoking: false },
-  bio: "Weekend warrior based in Nashville. Always looking for a good group.",
-  roundsPlayed: 24,
-  matchRating: 4.8,
-  noShows: 0,
-};
 
 // ── Style Constants ────────────────────────
 const C = {
@@ -269,7 +258,7 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
 }
 
 // ── Host Flow (Post Tee Time) ──────────────
-function HostFlow({ onPost }) {
+function HostFlow({ profile, onPost }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     course: "", date: "", time: "", holes: 18, spotsOpen: 1,
@@ -289,8 +278,8 @@ function HostFlow({ onPost }) {
       <div style={{ padding: "20px 20px 120px" }}>
         <h2 style={{ fontFamily: font.display, fontSize: 26, color: C.cream, margin: "0 0 20px", fontWeight: 700 }}>Preview</h2>
         <TeeTimeCard teeTime={{
-          ...form, id: "new", hostName: USER_PROFILE.name, hostHandicap: USER_PROFILE.handicap,
-          hostAvatar: USER_PROFILE.avatar, hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
+          ...form, id: "new", hostName: profile.name, hostHandicap: profile.handicap,
+          hostAvatar: profile.avatar ?? "🏌️", hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
           date: form.date ? new Date(form.date + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—",
           time: form.time || "—",
         }} />
@@ -452,7 +441,7 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
 }
 
 // ── Browse Feed (Player Side) ──────────────
-function BrowseFeed({ teeTimes, onApply }) {
+function BrowseFeed({ profile, teeTimes, onApply }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
@@ -484,10 +473,10 @@ function BrowseFeed({ teeTimes, onApply }) {
             }}>
               <span style={{ fontSize: 16 }}>🏌️</span>
               <div>
-                <span style={{ fontFamily: font.body, fontSize: 14, fontWeight: 600, color: C.cream }}>{USER_PROFILE.name}</span>
-                <span style={{ fontFamily: font.body, fontSize: 12, color: C.goldDim, marginLeft: 8 }}>{USER_PROFILE.handicap} HCP</span>
+                <span style={{ fontFamily: font.body, fontSize: 14, fontWeight: 600, color: C.cream }}>{profile.name}</span>
+                <span style={{ fontFamily: font.body, fontSize: 12, color: C.goldDim, marginLeft: 8 }}>{profile.handicap} HCP</span>
               </div>
-              <div style={{ marginLeft: "auto" }}><Badge color={C.green} style={{ fontSize: 10 }}>💳 {USER_PROFILE.paymentMethod}</Badge></div>
+              <div style={{ marginLeft: "auto" }}><Badge color={C.green} style={{ fontSize: 10 }}>💳 {profile.paymentMethod ?? "Not linked"}</Badge></div>
             </div>
             <textarea value={applyNote} onChange={e => setApplyNote(e.target.value)}
               placeholder="Introduce yourself to the group..."
@@ -540,8 +529,18 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
 }
 
 // ── Profile ────────────────────────────────
-function ProfileScreen() {
-  const u = USER_PROFILE;
+function ProfileScreen({ profile, onSignOut }) {
+  const u = {
+    avatar: profile.avatar ?? "🏌️",
+    name: profile.name,
+    location: profile.location ?? "Nashville, TN",
+    paymentMethod: profile.paymentMethod ?? "Not linked",
+    handicap: profile.handicap,
+    roundsPlayed: profile.roundsPlayed ?? 0,
+    matchRating: profile.matchRating ?? 0,
+    noShows: profile.noShows ?? 0,
+    preferences: profile.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false },
+  };
   return (
     <div style={{ padding: "20px 20px 120px" }}>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -554,9 +553,9 @@ function ProfileScreen() {
         }}>{u.avatar}</div>
         <div style={{ fontFamily: font.display, fontSize: 28, fontWeight: 700, color: C.cream }}>{u.name}</div>
         <div style={{ fontFamily: font.body, fontSize: 13, color: C.goldDim, marginTop: 3 }}>{u.location}</div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10 }}>
-          <VerifiedBadge />
-          <Badge color={C.green}>💳 {u.paymentMethod} Linked</Badge>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
+          {profile.verified && <VerifiedBadge />}
+          <Badge color={u.paymentMethod !== "Not linked" ? C.green : C.goldDim}>💳 {u.paymentMethod}{u.paymentMethod !== "Not linked" ? " Linked" : ""}</Badge>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
@@ -594,6 +593,9 @@ function ProfileScreen() {
           <span style={{ color: `${C.gold}40`, fontSize: 14 }}>›</span>
         </div>
       ))}
+      <div style={{ marginTop: 24 }}>
+        <ActionButton danger onClick={onSignOut} style={{ width: "100%" }}>Sign Out</ActionButton>
+      </div>
     </div>
   );
 }
@@ -624,19 +626,44 @@ function Toast({ message, type, onDone }) {
 // ── Main App ──────────────────────────────
 // ═══════════════════════════════════════════
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [tab, setTab] = useState("browse");
   const [teeTimes, setTeeTimes] = useState(MOCK_TEE_TIMES);
   const [myTeeTimes, setMyTeeTimes] = useState([MOCK_TEE_TIMES[0]]);
   const [reviewingTeeTime, setReviewingTeeTime] = useState(null);
   const [toast, setToast] = useState(null);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+      if (!u) setProfile(null);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setProfileLoading(true);
+    getDoc(doc(db, "users", user.uid))
+      .then((snap) => {
+        if (snap.exists()) setProfile(snap.data());
+        else setProfile(null);
+      })
+      .catch(() => setProfile(null))
+      .finally(() => setProfileLoading(false));
+  }, [user]);
+
   const showToast = (message, type = "success") => setToast({ message, type, key: Date.now() });
 
   const handlePost = (form) => {
     const newTT = {
       ...form, id: `my-${Date.now()}`,
-      hostName: USER_PROFILE.name, hostHandicap: USER_PROFILE.handicap,
-      hostAvatar: USER_PROFILE.avatar, hostVerified: true,
+      hostName: profile.name, hostHandicap: profile.handicap,
+      hostAvatar: profile.avatar ?? "🏌️", hostVerified: true,
       spotsTotal: form.spotsOpen + 1, applicants: [],
       date: form.date ? new Date(form.date + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—",
       time: form.time ? new Date(`2000-01-01T${form.time}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—",
@@ -668,6 +695,40 @@ export default function App() {
     showToast("Player passed.", "error");
   };
 
+  const handleSignOut = () => {
+    signOut(auth);
+  };
+
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: font.body, fontSize: 15, color: C.goldDim }}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  if (profileLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: font.body, fontSize: 15, color: C.goldDim }}>Loading profile…</div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <ProfileSetup
+        userId={user.uid}
+        courses={COURSES_NASHVILLE}
+        onComplete={(p) => setProfile(p)}
+      />
+    );
+  }
+
   const tabs = [
     { id: "browse", icon: "🔍", label: "Browse" },
     { id: "post", icon: "➕", label: "Post" },
@@ -695,11 +756,11 @@ export default function App() {
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          {tab === "browse" && <BrowseFeed teeTimes={teeTimes} onApply={handleApply} />}
-          {tab === "post" && <HostFlow onPost={handlePost} />}
+          {tab === "browse" && <BrowseFeed profile={profile} teeTimes={teeTimes} onApply={handleApply} />}
+          {tab === "post" && <HostFlow profile={profile} onPost={handlePost} />}
           {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} onViewApplicants={(t) => setReviewingTeeTime(t)} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
-          {tab === "profile" && <ProfileScreen />}
+          {tab === "profile" && <ProfileScreen profile={profile} onSignOut={handleSignOut} />}
         </div>
 
         {/* Bottom nav */}
