@@ -680,6 +680,11 @@ export default function App() {
     [teeTimes, user]
   );
 
+  const pendingApplicantsCount = useMemo(
+    () => myTeeTimes.reduce((sum, t) => sum + (t.applicants?.length ?? 0), 0),
+    [myTeeTimes]
+  );
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -879,13 +884,28 @@ export default function App() {
         }}>
           {tabs.map(t => {
             const TabIcon = t.icon;
+            const showBadge = t.id === "myTimes" && pendingApplicantsCount > 0;
             return (
               <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); }} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
                 background: "none", border: "none", cursor: "pointer", padding: "6px 16px",
-                opacity: tab === t.id ? 1 : 0.4, transition: "opacity 0.2s",
+                opacity: tab === t.id ? 1 : 0.4, transition: "opacity 0.2s", position: "relative",
               }}>
-                <TabIcon size={20} color={tab === t.id ? C.gold : C.goldDim} strokeWidth={1.75} />
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <TabIcon size={20} color={tab === t.id ? C.gold : C.goldDim} strokeWidth={1.75} />
+                  {showBadge && (
+                    <span style={{
+                      position: "absolute", top: -6, right: -10,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      background: C.red, color: "#fff",
+                      fontFamily: font.body, fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 5px", boxSizing: "border-box",
+                    }}>
+                      {pendingApplicantsCount > 99 ? "99+" : pendingApplicantsCount}
+                    </span>
+                  )}
+                </span>
                 <span style={{
                   fontFamily: font.body, fontSize: type.overline, letterSpacing: 0.5,
                   color: tab === t.id ? C.gold : C.goldDim,
