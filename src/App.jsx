@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy, arrayUnion } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -16,6 +16,7 @@ import {
   Clock,
   ChevronRight,
   MessageCircle,
+  MessageSquare,
 } from "lucide-react";
 import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
@@ -170,7 +171,7 @@ function ActionButton({ children, primary, danger, small, onClick, disabled, sty
 }
 
 // ── Tee Time Card ──────────────────────────
-function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
+function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants, onMessagePlayer, acceptedPlayers: acceptedPlayersProp }) {
   const prefs = [
     { key: "riding", emoji: "🛺", label: "Cart" },
     { key: "walking", icon: Footprints, label: "Walk" },
@@ -244,6 +245,37 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
               {t.applicants.length} player{t.applicants.length > 1 ? "s" : ""} interested
             </span>
             <span style={{ fontFamily: font.body, fontSize: type.caption, color: C.green }}>Review →</span>
+          </div>
+        )}
+
+        {isHost && ((acceptedPlayersProp ?? t.acceptedPlayers)?.length ?? 0) > 0 && (
+          <div style={{ marginTop: space.md }}>
+            <div style={{ fontFamily: font.heading, fontSize: type.overline, letterSpacing: 1.2, color: C.goldDim, marginBottom: space.sm }}>Accepted</div>
+            {(acceptedPlayersProp ?? t.acceptedPlayers ?? []).map((player) => (
+              <div
+                key={player.userId}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: `${space.sm}px 0`, borderTop: `1px solid ${C.cardBorder}`,
+                }}
+              >
+                <span style={{ fontFamily: font.body, fontSize: type.body, color: C.cream }}>{player.name ?? "Player"}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMessagePlayer?.(t, player); }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: `${space.xs}px ${space.sm}px`,
+                    fontFamily: font.body, fontSize: type.caption, fontWeight: 600, color: C.gold,
+                    background: C.goldFaint, border: `1px solid ${C.cardBorder}`, borderRadius: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <MessageSquare size={14} />
+                  Message
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -756,13 +788,24 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
 }
 
 // ── My Tee Times ───────────────────────────
-function MyTeeTimes({ teeTimes, onViewApplicants }) {
+function MyTeeTimes({ teeTimes, conversations, onViewApplicants, onMessagePlayer }) {
   const [showPastRounds, setShowPastRounds] = useState(false);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
   const todayStr = toLocalDateStr(new Date());
   const upcoming = teeTimes.filter((t) => !t.dateRaw || t.dateRaw >= todayStr);
   const past = teeTimes.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
+
+  const acceptedPlayersFor = (t) => {
+    const fromTee = t.acceptedPlayers ?? [];
+    const fromConvos = (conversations ?? []).filter((c) => c.teeTimeId === t.id && c.hostId === t.hostId);
+    const merged = [...fromTee];
+    fromConvos.forEach((c) => {
+      if (c.acceptedUserId && !merged.some((p) => p.userId === c.acceptedUserId))
+        merged.push({ userId: c.acceptedUserId, name: c.acceptedUserName ?? "Player" });
+    });
+    return merged;
+  };
 
   if (teeTimes.length === 0) {
     return (
@@ -805,7 +848,7 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
       {upcoming.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
           {upcoming.map((t) => (
-            <TeeTimeCard key={t.id} teeTime={t} isHost onViewApplicants={onViewApplicants} />
+            <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
           ))}
         </div>
       ) : (
@@ -830,7 +873,7 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
           <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Past Rounds</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
             {past.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} isHost onViewApplicants={onViewApplicants} />
+              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
             ))}
           </div>
         </div>
@@ -1344,6 +1387,7 @@ export default function App() {
       await updateDoc(doc(db, "teeTimes", teeTimeId), {
         applicants: newApplicants,
         spotsOpen: newSpotsOpen,
+        acceptedPlayers: arrayUnion({ userId: applicantId, name: applicant?.name ?? "Player" }),
       });
       await addDoc(collection(db, "notifications"), {
         userId: applicantId,
@@ -1407,6 +1451,49 @@ export default function App() {
       });
     } catch (err) {
       showToast(err.message || "Failed to send.", "error");
+    }
+  };
+
+  const handleMessagePlayer = async (teeTime, player) => {
+    const existing = conversations.find(
+      (c) => c.teeTimeId === teeTime.id && c.participantIds?.includes(player.userId)
+    );
+    if (existing) {
+      setActiveConversation(existing);
+      setTab("messages");
+      return;
+    }
+    const convId = [teeTime.hostId, player.userId].sort().join("_") + "_" + teeTime.id;
+    try {
+      await setDoc(doc(db, "conversations", convId), {
+        participantIds: [teeTime.hostId, player.userId],
+        teeTimeId: teeTime.id,
+        course: teeTime.course,
+        date: teeTime.date,
+        time: teeTime.time,
+        hostId: teeTime.hostId,
+        hostName: teeTime.hostName ?? "",
+        acceptedUserId: player.userId,
+        acceptedUserName: player.name ?? "Player",
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+      const newConv = {
+        id: convId,
+        participantIds: [teeTime.hostId, player.userId],
+        teeTimeId: teeTime.id,
+        course: teeTime.course,
+        date: teeTime.date,
+        time: teeTime.time,
+        hostId: teeTime.hostId,
+        hostName: teeTime.hostName ?? "",
+        acceptedUserId: player.userId,
+        acceptedUserName: player.name ?? "Player",
+        createdAt: new Date().toISOString(),
+      };
+      setActiveConversation(newConv);
+      setTab("messages");
+    } catch (err) {
+      showToast(err.message || "Failed to start conversation.", "error");
     }
   };
 
@@ -1491,7 +1578,7 @@ export default function App() {
               />
             )}
           {tab === "post" && <HostFlow profile={profile} onPost={handlePost} />}
-          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} onViewApplicants={(t) => setReviewingTeeTime(t)} />}
+          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
           {tab === "messages" && !activeConversation && (
             <ConversationsList
