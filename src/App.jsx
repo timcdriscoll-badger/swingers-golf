@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc, writeBatch, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Clock,
   ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
@@ -838,6 +839,217 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
   );
 }
 
+// ── Messages: conversation list & chat thread ──
+function ConversationsList({ userId, conversations, loading, onSelectConversation }) {
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+  const sorted = useMemo(
+    () => [...(conversations || [])].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [conversations]
+  );
+
+  if (loading) {
+    return (
+      <div style={pagePad}>
+        <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>Messages</h2>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Your conversations</p>
+        <div style={{ textAlign: "center", padding: space.xl, color: C.goldDim }}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (!sorted.length) {
+    return (
+      <div style={pagePad}>
+        <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>Messages</h2>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Your conversations</p>
+        <div style={{ textAlign: "center", padding: `${space.xxl}px ${space.pageX}px`, background: C.goldFaint, borderRadius: 16, border: `1px solid ${C.cardBorder}` }}>
+          <MessageCircle size={40} color={C.goldDim} style={{ marginBottom: space.sm }} />
+          <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>No conversations yet</div>
+          <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 4 }}>When a host accepts you (or you accept a player), a chat will appear here.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={pagePad}>
+      <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>Messages</h2>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Your conversations</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+        {sorted.map((conv) => {
+          const otherName = conv.hostId === userId ? conv.acceptedUserName : conv.hostName;
+          const summary = [conv.course, conv.date, conv.time].filter(Boolean).join(" · ") || "Tee time";
+          return (
+            <button
+              key={conv.id}
+              type="button"
+              onClick={() => onSelectConversation(conv)}
+              style={{
+                display: "flex", alignItems: "center", gap: space.md,
+                padding: space.md,
+                background: C.card,
+                border: `1px solid ${C.cardBorder}`,
+                borderRadius: 16,
+                cursor: "pointer",
+                textAlign: "left",
+                width: "100%",
+              }}
+            >
+              <Avatar size={48} shape="circle" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: font.display, fontSize: type.cardTitle, color: C.cream, marginBottom: 2 }}>{otherName || "Player"}</div>
+                <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim }}>{summary}</div>
+              </div>
+              <ChevronRight size={18} color={C.goldDim} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ChatThread({ conversationId, conversation, userId, onBack, onSendMessage }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px 100px` };
+  const otherName = conversation?.hostId === userId ? conversation?.acceptedUserName : conversation?.hostName;
+  const summary = conversation ? [conversation.course, conversation.date, conversation.time].filter(Boolean).join(" · ") : "";
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const messagesRef = collection(db, "conversations", conversationId, "messages");
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setMessages(list);
+    });
+    return () => unsub();
+  }, [conversationId]);
+
+  const handleSend = async () => {
+    const text = (input || "").trim();
+    if (!text || sending) return;
+    setSending(true);
+    setInput("");
+    try {
+      await onSendMessage(conversationId, text);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={pagePad}>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          fontFamily: font.body, fontSize: type.caption, color: C.goldDim,
+          background: "none", border: "none", cursor: "pointer", marginBottom: space.md, padding: 0,
+        }}
+      >
+        ← Back to messages
+      </button>
+      <div style={{ marginBottom: space.lg }}>
+        <div style={{ fontFamily: font.display, fontSize: type.cardTitle, color: C.cream }}>{otherName || "Player"}</div>
+        {summary && <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim }}>{summary}</div>}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+        {messages.map((m) => {
+          const isMe = m.senderId === userId;
+          const senderName = isMe ? "You" : (otherName || "Player");
+          const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
+          return (
+            <div
+              key={m.id}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: isMe ? "flex-end" : "flex-start",
+              }}
+            >
+              <div style={{ fontFamily: font.body, fontSize: type.label, color: C.goldDim, marginBottom: 4 }}>{senderName}</div>
+              <div
+                style={{
+                  maxWidth: "80%",
+                  padding: `${space.sm}px ${space.md}px`,
+                  borderRadius: 16,
+                  background: isMe ? C.goldFaint : C.card,
+                  border: `1px solid ${C.cardBorder}`,
+                  fontFamily: font.body,
+                  fontSize: type.body,
+                  color: C.cream,
+                }}
+              >
+                {m.text}
+              </div>
+              {timeStr && <div style={{ fontFamily: font.body, fontSize: type.overline, color: C.goldDim, marginTop: 4 }}>{timeStr}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "100%",
+          maxWidth: 460,
+          padding: `${space.sm}px ${space.pageX}px calc(${space.sm}px + var(--sab, 0px))`,
+          background: C.bg,
+          borderTop: `1px solid ${C.cardBorder}`,
+          display: "flex",
+          gap: space.sm,
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+          placeholder="Type a message…"
+          style={{
+            flex: 1,
+            padding: `${space.sm}px ${space.md}px`,
+            fontFamily: font.body,
+            fontSize: type.body,
+            color: C.cream,
+            background: C.card,
+            border: `1px solid ${C.cardBorder}`,
+            borderRadius: 12,
+            outline: "none",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={sending || !input.trim()}
+          style={{
+            padding: `${space.sm}px ${space.md}px`,
+            fontFamily: font.body,
+            fontSize: type.body,
+            fontWeight: 600,
+            color: C.gold,
+            background: C.goldFaint,
+            border: `1px solid ${C.cardBorder}`,
+            borderRadius: 12,
+            cursor: input.trim() && !sending ? "pointer" : "default",
+            opacity: input.trim() && !sending ? 1 : 0.5,
+          }}
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Profile ────────────────────────────────
 function ProfileScreen({ profile, onSignOut }) {
   const u = {
@@ -944,6 +1156,9 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [tab, setTab] = useState("browse");
   const [reviewingTeeTime, setReviewingTeeTime] = useState(null);
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
   const myTeeTimes = useMemo(
@@ -1025,6 +1240,20 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "conversations"),
+      where("participantIds", "array-contains", user.uid)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setConversations(list);
+      setConversationsLoading(false);
+    });
+    return () => unsub();
+  }, [user]);
+
   const showToast = (message, type = "success") => setToast({ message, type, key: Date.now() });
 
   const handlePost = async (form) => {
@@ -1096,6 +1325,7 @@ export default function App() {
   const handleAccept = async (teeTimeId, applicantId) => {
     const t = teeTimes.find((x) => x.id === teeTimeId);
     if (!t) return;
+    const applicant = (t.applicants ?? []).find((a) => a.id === applicantId);
     const newApplicants = (t.applicants ?? []).filter((a) => a.id !== applicantId);
     const newSpotsOpen = t.spotsOpen - 1;
     try {
@@ -1112,6 +1342,19 @@ export default function App() {
         read: false,
         createdAt: new Date().toISOString(),
       });
+      const convId = [t.hostId, applicantId].sort().join("_") + "_" + teeTimeId;
+      await setDoc(doc(db, "conversations", convId), {
+        participantIds: [t.hostId, applicantId],
+        teeTimeId,
+        course: t.course,
+        date: t.date,
+        time: t.time,
+        hostId: t.hostId,
+        hostName: t.hostName ?? "",
+        acceptedUserId: applicantId,
+        acceptedUserName: applicant?.name ?? "Player",
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
       if (reviewingTeeTime?.id === teeTimeId)
         setReviewingTeeTime((prev) => ({ ...prev, applicants: newApplicants, spotsOpen: newSpotsOpen }));
       showToast("Player accepted! They've been notified.");
@@ -1140,6 +1383,18 @@ export default function App() {
       showToast("Player passed.", "error");
     } catch (err) {
       showToast(err.message || "Failed to decline.", "error");
+    }
+  };
+
+  const handleSendMessage = async (conversationId, text) => {
+    try {
+      await addDoc(collection(db, "conversations", conversationId, "messages"), {
+        senderId: user.uid,
+        text: text.trim(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      showToast(err.message || "Failed to send.", "error");
     }
   };
 
@@ -1188,6 +1443,7 @@ export default function App() {
     { id: "browse", icon: Search, label: "Browse" },
     { id: "post", icon: PlusCircle, label: "Post" },
     { id: "myTimes", icon: CalendarDays, label: "My Times" },
+    { id: "messages", icon: MessageCircle, label: "Messages" },
     { id: "profile", icon: User, label: "Profile" },
   ];
 
@@ -1225,6 +1481,23 @@ export default function App() {
           {tab === "post" && <HostFlow profile={profile} onPost={handlePost} />}
           {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} onViewApplicants={(t) => setReviewingTeeTime(t)} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
+          {tab === "messages" && !activeConversation && (
+            <ConversationsList
+              userId={user.uid}
+              conversations={conversations}
+              loading={conversationsLoading}
+              onSelectConversation={(conv) => setActiveConversation(conv)}
+            />
+          )}
+          {tab === "messages" && activeConversation && (
+            <ChatThread
+              conversationId={activeConversation.id}
+              conversation={activeConversation}
+              userId={user.uid}
+              onBack={() => setActiveConversation(null)}
+              onSendMessage={handleSendMessage}
+            />
+          )}
           {tab === "profile" && (
               <ProfileScreen
                 profile={profile}
@@ -1247,7 +1520,7 @@ export default function App() {
             const showBadge = showMyTimesBadge || showBrowseBadge;
             const badgeCount = showMyTimesBadge ? pendingApplicantsCount : unreadNotificationCount;
             return (
-              <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); }} style={{
+              <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); if (t.id !== "messages") setActiveConversation(null); }} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
                 background: "none", border: "none", cursor: "pointer", padding: "6px 16px",
                 opacity: tab === t.id ? 1 : 0.4, transition: "opacity 0.2s", position: "relative",
