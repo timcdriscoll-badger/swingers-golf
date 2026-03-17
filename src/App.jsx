@@ -812,13 +812,18 @@ function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loadi
 }
 
 // ── My Tee Times ───────────────────────────
-function MyTeeTimes({ teeTimes, conversations, onViewApplicants, onMessagePlayer }) {
+function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessagePlayer }) {
   const [showPastRounds, setShowPastRounds] = useState(false);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
   const todayStr = toLocalDateStr(new Date());
-  const upcoming = teeTimes.filter((t) => !t.dateRaw || t.dateRaw >= todayStr);
-  const past = teeTimes.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
+  const mine = (teeTimes ?? []).filter((t) => t.hostId === userId);
+  const upcoming = mine.filter((t) => {
+    const raw = t.dateRaw;
+    if (!raw) return true;
+    return raw >= todayStr;
+  });
+  const past = mine.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
 
   const acceptedPlayersFor = (t) => {
     const fromTee = t.acceptedPlayers ?? [];
@@ -831,7 +836,7 @@ function MyTeeTimes({ teeTimes, conversations, onViewApplicants, onMessagePlayer
     return merged;
   };
 
-  if (teeTimes.length === 0) {
+  if (mine.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: `${space.xxl * 2}px ${space.pageX}px` }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: space.sm }}>
@@ -1663,7 +1668,7 @@ export default function App() {
               />
             )}
           {tab === "post" && <HostFlow profile={profile} courses={getCoursesForCity(selectedCityKey)} onPost={handlePost} />}
-          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} />}
+          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes userId={user.uid} teeTimes={teeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
           {tab === "messages" && !activeConversation && (
             <ConversationsList
