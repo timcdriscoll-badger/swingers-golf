@@ -817,13 +817,17 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
   const todayStr = toLocalDateStr(new Date());
-  const mine = (teeTimes ?? []).filter((t) => t.hostId === userId);
-  const upcoming = mine.filter((t) => {
-    const raw = t.dateRaw;
-    if (!raw) return true;
-    return raw >= todayStr;
-  });
-  const past = mine.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
+  const hostingAll = (teeTimes ?? []).filter((t) => t.hostId === userId);
+  const playingAll = (teeTimes ?? []).filter((t) => (t.acceptedPlayers ?? []).some((p) => p.userId === userId));
+
+  const hostingUpcoming = hostingAll.filter((t) => !t.dateRaw || t.dateRaw >= todayStr);
+  const hostingPast = hostingAll.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
+  const playingUpcoming = playingAll.filter((t) => !t.dateRaw || t.dateRaw >= todayStr);
+  const playingPast = playingAll.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
+
+  const hasAnyPast = hostingPast.length > 0 || playingPast.length > 0;
+  const showHostingSection = hostingUpcoming.length > 0 || (showPastRounds && hostingPast.length > 0);
+  const showPlayingSection = playingUpcoming.length > 0 || (showPastRounds && playingPast.length > 0);
 
   const acceptedPlayersFor = (t) => {
     const fromTee = t.acceptedPlayers ?? [];
@@ -836,14 +840,14 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
     return merged;
   };
 
-  if (mine.length === 0) {
+  if (hostingAll.length === 0 && playingAll.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: `${space.xxl * 2}px ${space.pageX}px` }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: space.sm }}>
           <CalendarDays size={52} color={C.goldDim} strokeWidth={1.5} />
         </div>
-        <div style={{ fontFamily: font.display, fontSize: type.sectionTitle, color: C.cream, marginBottom: 8 }}>No tee times posted</div>
-        <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>Post a tee time to start finding players</div>
+        <div style={{ fontFamily: font.display, fontSize: type.sectionTitle, color: C.cream, marginBottom: 8 }}>No tee times yet</div>
+        <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>Post a tee time to find players, or browse to join one.</div>
       </div>
     );
   }
@@ -852,8 +856,8 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
     <div style={pagePad}>
       <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>My Tee Times</h2>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: space.xs, marginBottom: space.lg }}>
-        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: 0 }}>Manage your posted rounds</p>
-        {past.length > 0 && (
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: 0 }}>Rounds you’re hosting or playing</p>
+        {hasAnyPast && (
           <button
             type="button"
             onClick={() => setShowPastRounds((v) => !v)}
@@ -874,16 +878,38 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
         )}
       </div>
 
-      {upcoming.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
-          {upcoming.map((t) => (
-            <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
-          ))}
-        </div>
-      ) : (
+      {showHostingSection && (
+        <section style={{ marginBottom: space.xl }}>
+          <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Hosting</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
+            {hostingUpcoming.map((t) => (
+              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
+            ))}
+            {showPastRounds && hostingPast.map((t) => (
+              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {showPlayingSection && (
+        <section>
+          <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Playing</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
+            {playingUpcoming.map((t) => (
+              <TeeTimeCard key={t.id} teeTime={t} />
+            ))}
+            {showPastRounds && playingPast.map((t) => (
+              <TeeTimeCard key={t.id} teeTime={t} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!showHostingSection && !showPlayingSection && (
         <div style={{ textAlign: "center", padding: `${space.xl}px ${space.pageX}px`, background: C.goldFaint, borderRadius: 16, border: `1px solid ${C.cardBorder}` }}>
-          <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>No upcoming tee times</div>
-          {past.length > 0 && (
+          <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>No upcoming rounds</div>
+          {hasAnyPast && (
             <button
               type="button"
               onClick={() => setShowPastRounds(true)}
@@ -894,17 +920,6 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
               View past rounds
             </button>
           )}
-        </div>
-      )}
-
-      {showPastRounds && past.length > 0 && (
-        <div style={{ marginTop: space.xl }}>
-          <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Past Rounds</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
-            {past.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
-            ))}
-          </div>
         </div>
       )}
     </div>
