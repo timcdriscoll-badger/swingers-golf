@@ -179,12 +179,12 @@ function SectionLabel({ children }) {
   );
 }
 
-function ActionButton({ children, primary, danger, small, onClick, disabled, style: sx = {} }) {
+function ActionButton({ children, primary, danger, small, onClick, disabled, type = "button", style: sx = {} }) {
   const bg = primary ? `linear-gradient(135deg, ${C.gold}, #a89460)` : danger ? C.redDim : "transparent";
   const color = primary ? C.bg : danger ? C.red : C.gold;
   const border = primary ? "none" : danger ? `1px solid ${C.red}25` : `1px solid ${C.cardBorder}`;
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button type={type} onClick={onClick} disabled={disabled} style={{
       fontFamily: font.heading, fontSize: small ? type.label : type.caption,
       letterSpacing: small ? 1.8 : 2, textTransform: "uppercase",
       fontWeight: 600, padding: small ? "10px 20px" : "14px 32px",
@@ -1213,8 +1213,195 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
   );
 }
 
+// ── Edit Profile ──────────────────────────
+const inputStyleProfile = {
+  fontFamily: font.body,
+  fontSize: type.body,
+  color: C.cream,
+  background: C.goldFaint,
+  border: `1px solid ${C.cardBorder}`,
+  borderRadius: 12,
+  padding: "14px 18px",
+  width: "100%",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+function EditProfileScreen({ userId, profile, onSave, onBack }) {
+  const [name, setName] = useState(profile?.name ?? "");
+  const [handicap, setHandicap] = useState(profile?.handicap ?? "");
+  const [homeCourse, setHomeCourse] = useState(profile?.homeCourse ?? "");
+  const [bio, setBio] = useState(profile?.bio ?? "");
+  const [preferences, setPreferences] = useState(profile?.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+  const courses = getCoursesForCity(profile?.city);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    const handicapNum = parseFloat(handicap);
+    if (!name.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
+    if (handicap === "" || isNaN(handicapNum) || handicapNum < 0 || handicapNum > 54) {
+      setError("Please enter a valid handicap (0–54).");
+      return;
+    }
+    if (!homeCourse) {
+      setError("Please select a home course.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = {
+        name: name.trim(),
+        handicap: handicapNum,
+        homeCourse,
+        bio: (bio || "").trim(),
+        preferences,
+      };
+      await updateDoc(doc(db, "users", userId), updated);
+      onSave?.({ ...profile, ...updated });
+      onBack?.();
+    } catch (err) {
+      setError(err.message || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const prefs = [
+    { key: "riding", label: "Riding", emoji: "🛺" },
+    { key: "walking", label: "Walking", icon: Footprints },
+    { key: "music", label: "Music OK", icon: Music },
+    { key: "drinking", label: "Drinking", icon: Wine },
+    { key: "smoking", label: "Smoking", icon: Cigarette },
+  ];
+
+  return (
+    <div style={pagePad}>
+      <button type="button" onClick={onBack} style={{
+        fontFamily: font.body, fontSize: type.caption, color: C.goldDim, background: "none", border: "none", cursor: "pointer", marginBottom: space.md, padding: 0,
+      }}>← Back to Profile</button>
+      <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>Edit Profile</h2>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Update your details and preferences</p>
+
+      <form onSubmit={handleSubmit}>
+        <SectionLabel>Name</SectionLabel>
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyleProfile, marginBottom: space.lg }} placeholder="Your name" />
+
+        <SectionLabel>Handicap</SectionLabel>
+        <input type="text" inputMode="decimal" value={handicap} onChange={(e) => setHandicap(e.target.value)} style={{ ...inputStyleProfile, marginBottom: space.lg }} placeholder="0–54" />
+
+        <SectionLabel>Home course</SectionLabel>
+        <select value={homeCourse} onChange={(e) => setHomeCourse(e.target.value)} style={{ ...inputStyleProfile, appearance: "none", cursor: "pointer", marginBottom: space.lg }}>
+          <option value="">Select home course...</option>
+          {(courses || []).map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <SectionLabel>Bio</SectionLabel>
+        <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} style={{ ...inputStyleProfile, resize: "none", marginBottom: space.lg }} placeholder="A bit about you..." />
+
+        <SectionLabel>Preferences</SectionLabel>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, marginBottom: space.lg }}>
+          {prefs.map((p) => (
+            <button key={p.key} type="button" onClick={() => setPreferences((prev) => ({ ...prev, [p.key]: !prev[p.key] }))} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: 12,
+              border: preferences[p.key] ? `1px solid ${C.gold}` : `1px solid ${C.cardBorder}`,
+              background: preferences[p.key] ? C.goldFaint : "transparent",
+              color: preferences[p.key] ? C.gold : C.creamDim,
+              fontFamily: font.body, fontSize: type.body, cursor: "pointer",
+            }}>
+              {p.emoji ? <span style={{ fontSize: 16 }}>{p.emoji}</span> : p.icon && (() => { const Icon = p.icon; return <Icon size={16} strokeWidth={2} />; })()}
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {error && <p style={{ fontFamily: font.body, fontSize: type.caption, color: C.red, marginBottom: space.md }}>{error}</p>}
+        <ActionButton type="submit" primary disabled={saving} style={{ width: "100%" }}>{saving ? "Saving…" : "Save changes"}</ActionButton>
+      </form>
+    </div>
+  );
+}
+
+// ── Notification Settings ─────────────────
+const DEFAULT_NOTIFICATION_SETTINGS = { applicantRequests: true, acceptedDeclined: true, newMessages: true };
+
+function NotificationSettingsScreen({ userId, profile, onSave, onBack }) {
+  const settings = profile?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+  const [applicantRequests, setApplicantRequests] = useState(settings.applicantRequests);
+  const [acceptedDeclined, setAcceptedDeclined] = useState(settings.acceptedDeclined);
+  const [newMessages, setNewMessages] = useState(settings.newMessages);
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+
+  const updateAndSave = async (key, value) => {
+    const next = { ...settings, [key]: value };
+    try {
+      await updateDoc(doc(db, "users", userId), { notificationSettings: next });
+      onSave?.({ ...profile, notificationSettings: next });
+    } catch (err) {
+      // revert on error
+      if (key === "applicantRequests") setApplicantRequests(settings.applicantRequests);
+      if (key === "acceptedDeclined") setAcceptedDeclined(settings.acceptedDeclined);
+      if (key === "newMessages") setNewMessages(settings.newMessages);
+    }
+  };
+
+  const toggle = (key, setter, value) => {
+    setter(value);
+    updateAndSave(key, value);
+  };
+
+  const row = (label, description, on, setOn, saveKey) => (
+    <div key={saveKey} style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: `${space.md}px 0`, borderBottom: `1px solid ${C.cardBorder}`,
+    }}>
+      <div>
+        <div style={{ fontFamily: font.body, fontSize: type.body, color: C.cream, fontWeight: 600 }}>{label}</div>
+        {description && <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 2 }}>{description}</div>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => toggle(saveKey, setOn, !on)}
+        style={{
+          width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
+          background: on ? C.green : C.card, position: "relative",
+          boxShadow: on ? "inset 0 0 0 1px rgba(74,222,128,0.3)" : `inset 0 0 0 1px ${C.cardBorder}`,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 3, left: on ? 23 : 3, width: 20, height: 20, borderRadius: 10,
+          background: C.cream, transition: "left 0.2s",
+        }} />
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={pagePad}>
+      <button type="button" onClick={onBack} style={{
+        fontFamily: font.body, fontSize: type.caption, color: C.goldDim, background: "none", border: "none", cursor: "pointer", marginBottom: space.md, padding: 0,
+      }}>← Back to Profile</button>
+      <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>Notification Settings</h2>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Choose which notifications you receive</p>
+
+      {row("New applicant requests", "When someone applies to your tee time", applicantRequests, setApplicantRequests, "applicantRequests")}
+      {row("Accepted / declined", "When a host accepts or declines your application", acceptedDeclined, setAcceptedDeclined, "acceptedDeclined")}
+      {row("New messages", "When you receive a new chat message", newMessages, setNewMessages, "newMessages")}
+    </div>
+  );
+}
+
 // ── Profile ────────────────────────────────
-function ProfileScreen({ profile, onSignOut }) {
+function ProfileScreen({ userId, profile, onSignOut, onProfileUpdated }) {
+  const [subScreen, setSubScreen] = useState(null);
   const u = {
     name: profile.name,
     location: profile.location ?? "Nashville, TN",
@@ -1226,6 +1413,21 @@ function ProfileScreen({ profile, onSignOut }) {
     preferences: profile.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false },
   };
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+
+  if (subScreen === "editProfile") {
+    return <EditProfileScreen userId={userId} profile={profile} onSave={onProfileUpdated} onBack={() => setSubScreen(null)} />;
+  }
+  if (subScreen === "notificationSettings") {
+    return <NotificationSettingsScreen userId={userId} profile={profile} onSave={onProfileUpdated} onBack={() => setSubScreen(null)} />;
+  }
+
+  const menuItems = [
+    { id: "editProfile", label: "Edit Profile" },
+    { id: "notificationSettings", label: "Notification Settings" },
+    { label: "Payment Methods" },
+    { label: "Round History" },
+    { label: "Help & Support" },
+  ];
 
   return (
     <div style={pagePad}>
@@ -1268,13 +1470,19 @@ function ProfileScreen({ profile, onSignOut }) {
           <PrefIcon active={u.preferences.smoking} icon={Cigarette} label="Smoke" />
         </div>
       </div>
-      {["Edit Profile", "Payment Methods", "Notification Settings", "Round History", "Help & Support"].map(item => (
-        <div key={item} style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: `${space.md}px 0`, borderBottom: `1px solid ${C.cardBorder}`, cursor: "pointer",
-        }}>
-          <span style={{ fontFamily: font.body, fontSize: type.body, color: C.creamDim }}>{item}</span>
-          <ChevronRight size={16} color="rgba(196,180,130,0.4)" />
+      {menuItems.map((item) => (
+        <div
+          key={item.label}
+          role={item.id ? "button" : undefined}
+          onClick={item.id ? () => setSubScreen(item.id) : undefined}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: `${space.md}px 0`, borderBottom: `1px solid ${C.cardBorder}`,
+            cursor: item.id ? "pointer" : "default",
+          }}
+        >
+          <span style={{ fontFamily: font.body, fontSize: type.body, color: item.id ? C.cream : C.creamDim }}>{item.label}</span>
+          {item.id && <ChevronRight size={16} color="rgba(196,180,130,0.4)" />}
         </div>
       ))}
       <div style={{ marginTop: space.xl }}>
@@ -1790,8 +1998,10 @@ export default function App() {
           )}
           {tab === "profile" && (
               <ProfileScreen
+                userId={user.uid}
                 profile={profile}
                 onSignOut={handleSignOut}
+                onProfileUpdated={setProfile}
               />
             )}
         </div>
