@@ -16,8 +16,7 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "./firebase";
+import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
 import ProfileSetup from "./ProfileSetup";
 
@@ -782,9 +781,7 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
 }
 
 // ── Profile ────────────────────────────────
-function ProfileScreen({ userId, profile, onSignOut, onPhotoUploaded }) {
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useState(null)[0];
+function ProfileScreen({ profile, onSignOut }) {
   const u = {
     name: profile.name,
     location: profile.location ?? "Nashville, TN",
@@ -797,50 +794,12 @@ function ProfileScreen({ userId, profile, onSignOut, onPhotoUploaded }) {
   };
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
-  const handleAvatarTap = () => {
-    if (!userId || uploading) return;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = async (e) => {
-      const file = e.target?.files?.[0];
-      if (!file) return;
-      setUploading(true);
-      try {
-        const path = `users/${userId}/avatar_${Date.now()}.jpg`;
-        const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
-        const photoURL = await getDownloadURL(storageRef);
-        await updateDoc(doc(db, "users", userId), { photoURL });
-        onPhotoUploaded?.({ ...profile, photoURL });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setUploading(false);
-      }
-    };
-    input.click();
-  };
-
   return (
     <div style={pagePad}>
       <div style={{ textAlign: "center", marginBottom: space.xl }}>
-        <button
-          type="button"
-          onClick={handleAvatarTap}
-          style={{
-            margin: "0 auto 20px",
-            padding: 0,
-            border: `2px solid ${C.cardBorder}`,
-            borderRadius: 28,
-            background: "none",
-            cursor: uploading ? "wait" : "pointer",
-            display: "block",
-            opacity: uploading ? 0.7 : 1,
-          }}
-        >
-          <Avatar photoURL={profile.photoURL} size={96} shape="circle" />
-        </button>
+        <div style={{ margin: "0 auto 20px", display: "inline-block" }}>
+          <Avatar size={96} shape="circle" />
+        </div>
         <div style={{ fontFamily: font.display, fontSize: 30, fontWeight: 600, color: C.cream }}>{u.name}</div>
         <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 6 }}>{u.location}</div>
         <div style={{ display: "flex", gap: space.sm, justifyContent: "center", marginTop: space.md, flexWrap: "wrap" }}>
@@ -1210,10 +1169,8 @@ export default function App() {
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
           {tab === "profile" && (
               <ProfileScreen
-                userId={user.uid}
                 profile={profile}
                 onSignOut={handleSignOut}
-                onPhotoUploaded={(updated) => setProfile(updated)}
               />
             )}
         </div>
