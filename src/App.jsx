@@ -16,7 +16,8 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react";
-import { auth, db } from "./firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth, db, storage } from "./firebase";
 import AuthScreen from "./AuthScreen";
 import ProfileSetup from "./ProfileSetup";
 
@@ -92,6 +93,26 @@ function AvatarIcon({ size = 22, color = C.gold, style: sx = {} }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", ...sx }}>
       <User size={size} color={color} strokeWidth={2} />
+    </div>
+  );
+}
+
+function Avatar({ photoURL, size = 44, shape = "rounded", style: sx = {} }) {
+  const isCircle = shape === "circle";
+  const borderRadius = isCircle ? "50%" : 14;
+  const sizeStyle = { width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, ...sx };
+  if (photoURL) {
+    return (
+      <img
+        src={photoURL}
+        alt=""
+        style={{ ...sizeStyle, objectFit: "cover", display: "block" }}
+      />
+    );
+  }
+  return (
+    <div style={{ ...sizeStyle, background: C.goldFaint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <User size={Math.round(size * 0.5)} color={C.gold} strokeWidth={2} />
     </div>
   );
 }
@@ -174,12 +195,7 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants }) {
         padding: `${space.lg}px ${space.lg}px ${space.md}px`, borderBottom: `1px solid ${C.cardBorder}`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 14, background: C.goldFaint,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <AvatarIcon size={22} color={C.gold} />
-          </div>
+          <Avatar photoURL={t.hostPhotoURL} size={44} />
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
               <span style={{ fontFamily: font.display, fontSize: type.sectionTitle - 2, fontWeight: 600, color: C.cream }}>{t.hostName}</span>
@@ -260,7 +276,7 @@ function HostFlow({ profile, onPost }) {
         <p style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, margin: "0 0 28px" }}>Review before posting</p>
         <TeeTimeCard teeTime={{
           ...form, id: "new", hostName: profile.name, hostHandicap: profile.handicap,
-          hostAvatar: null, hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
+          hostPhotoURL: profile.photoURL ?? null, hostVerified: true, spotsTotal: form.spotsOpen + 1, applicants: [],
           date: form.date ? new Date(form.date + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—",
           time: form.time || "—",
         }} />
@@ -373,9 +389,90 @@ function HostFlow({ profile, onPost }) {
   );
 }
 
+// ── Player Profile View (full profile when reviewing applicant) ──
+function PlayerProfileView({ teeTimeId, applicant, profileData, onBack, onAccept, onDecline }) {
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+  const p = profileData || {};
+  const prefs = p.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false };
+  return (
+    <div style={pagePad}>
+      <button onClick={onBack} style={{
+        fontFamily: font.body, fontSize: type.caption, color: C.goldDim,
+        background: "none", border: "none", cursor: "pointer", marginBottom: space.md, padding: 0,
+      }}>← Back to applicants</button>
+      <div style={{ textAlign: "center", marginBottom: space.lg }}>
+        <Avatar photoURL={applicant.photoURL ?? p.photoURL} size={96} shape="circle" />
+        <div style={{ fontFamily: font.display, fontSize: 26, fontWeight: 600, color: C.cream, marginTop: space.sm }}>{applicant.name}</div>
+        <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 4 }}>{applicant.handicap} HCP</div>
+        <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 2 }}>{p.location ?? "—"}</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: space.sm, marginBottom: space.lg }}>
+        {[
+          { label: "HCP", value: applicant.handicap },
+          { label: "Rounds", value: p.roundsPlayed ?? "—" },
+          { label: "Rating", value: p.matchRating != null ? `${p.matchRating}★` : "—" },
+          { label: "No Shows", value: p.noShows ?? "—" },
+        ].map((s) => (
+          <div key={s.label} style={{
+            textAlign: "center", padding: `${space.sm}px 8px`,
+            background: C.goldFaint, border: `1px solid ${C.cardBorder}`, borderRadius: 14,
+          }}>
+            <div style={{ fontFamily: font.heading, fontSize: type.overline, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontFamily: font.display, fontSize: type.body, color: C.gold, fontWeight: 600 }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: `${space.md}px ${space.lg}px`, borderRadius: 14, background: C.goldFaint, border: `1px solid ${C.cardBorder}`, marginBottom: space.lg }}>
+        <SectionLabel>Preferences</SectionLabel>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
+          <PrefIcon active={prefs.riding} emoji="🛺" label="Cart" />
+          <PrefIcon active={prefs.walking} icon={Footprints} label="Walk" />
+          <PrefIcon active={prefs.music} icon={Music} label="Music" />
+          <PrefIcon active={prefs.drinking} icon={Wine} label="Drinks" />
+          <PrefIcon active={prefs.smoking} icon={Cigarette} label="Smoke" />
+        </div>
+      </div>
+      {applicant.note && (
+        <div style={{ marginBottom: space.lg }}>
+          <SectionLabel>Note</SectionLabel>
+          <p style={{ fontFamily: font.body, fontSize: type.body, color: C.creamDim, margin: 0, fontStyle: "italic" }}>"{applicant.note}"</p>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: space.sm, marginTop: space.lg }}>
+        <ActionButton small danger onClick={async () => { await onDecline(teeTimeId, applicant.id); onBack(); }} style={{ flex: 1 }}>Pass</ActionButton>
+        <ActionButton small primary onClick={async () => { await onAccept(teeTimeId, applicant.id); onBack(); }} style={{ flex: 1 }}>Accept</ActionButton>
+      </div>
+    </div>
+  );
+}
+
 // ── Applicant Review ───────────────────────
 function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+
+  const handleTapApplicant = async (a) => {
+    try {
+      const snap = await getDoc(doc(db, "users", a.userId));
+      setSelectedPlayer({ applicant: a, profileData: snap.exists() ? snap.data() : {} });
+    } catch {
+      setSelectedPlayer({ applicant: a, profileData: {} });
+    }
+  };
+
+  if (selectedPlayer) {
+    return (
+      <PlayerProfileView
+        teeTimeId={teeTime.id}
+        applicant={selectedPlayer.applicant}
+        profileData={selectedPlayer.profileData}
+        onBack={() => setSelectedPlayer(null)}
+        onAccept={onAccept}
+        onDecline={onDecline}
+      />
+    );
+  }
+
   return (
     <div style={pagePad}>
       <button onClick={onBack} style={{
@@ -402,19 +499,28 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
           {teeTime.applicants.map(a => (
             <div key={a.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 20, padding: space.lg }}>
               <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.sm }}>
-                <div style={{
-                  width: 50, height: 50, borderRadius: 16, background: C.goldFaint,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <User size={26} color={C.gold} strokeWidth={2} />
-                </div>
-                <div style={{ flex: 1 }}>
+                <button
+                  type="button"
+                  onClick={() => handleTapApplicant(a)}
+                  style={{
+                    padding: 0, border: "none", background: "none", cursor: "pointer", borderRadius: 16, overflow: "hidden",
+                  }}
+                >
+                  <Avatar photoURL={a.photoURL} size={50} shape="rounded" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTapApplicant(a)}
+                  style={{
+                    flex: 1, textAlign: "left", padding: 0, border: "none", background: "none", cursor: "pointer",
+                  }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
                     <span style={{ fontFamily: font.display, fontSize: type.sectionTitle - 2, fontWeight: 600, color: C.cream }}>{a.name}</span>
                     {a.verified && <VerifiedBadge />}
                   </div>
                   <span style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim }}>{a.handicap} HCP</span>
-                </div>
+                </button>
                 <Badge color={(a.paymentMethod && a.paymentMethod !== "Not linked") ? C.green : C.goldDim} style={{ fontSize: type.overline, display: "flex", alignItems: "center", gap: 4 }}>
                   <CreditCard size={10} /> {a.paymentMethod && a.paymentMethod !== "Not linked" ? "Linked" : a.paymentMethod ?? "—"}
                 </Badge>
@@ -547,7 +653,7 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
               display: "flex", alignItems: "center", gap: space.sm, marginBottom: space.md, padding: `${space.sm}px ${space.md}px`,
               borderRadius: 12, background: C.goldFaint, border: `1px solid ${C.cardBorder}`,
             }}>
-              <User size={22} color={C.gold} strokeWidth={2} />
+              <Avatar photoURL={profile.photoURL} size={40} shape="rounded" />
               <div>
                 <span style={{ fontFamily: font.body, fontSize: type.body, fontWeight: 600, color: C.cream }}>{profile.name}</span>
                 <span style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginLeft: 8 }}>{profile.handicap} HCP</span>
@@ -676,7 +782,9 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
 }
 
 // ── Profile ────────────────────────────────
-function ProfileScreen({ profile, onSignOut }) {
+function ProfileScreen({ userId, profile, onSignOut, onPhotoUploaded }) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useState(null)[0];
   const u = {
     name: profile.name,
     location: profile.location ?? "Nashville, TN",
@@ -689,17 +797,50 @@ function ProfileScreen({ profile, onSignOut }) {
   };
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
+  const handleAvatarTap = () => {
+    if (!userId || uploading) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const path = `users/${userId}/avatar_${Date.now()}.jpg`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file);
+        const photoURL = await getDownloadURL(storageRef);
+        await updateDoc(doc(db, "users", userId), { photoURL });
+        onPhotoUploaded?.({ ...profile, photoURL });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
+  };
+
   return (
     <div style={pagePad}>
       <div style={{ textAlign: "center", marginBottom: space.xl }}>
-        <div style={{
-          width: 96, height: 96, borderRadius: 28,
-          background: C.goldFaint, border: `1px solid ${C.cardBorder}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 20px",
-        }}>
-          <User size={48} color={C.gold} strokeWidth={2} />
-        </div>
+        <button
+          type="button"
+          onClick={handleAvatarTap}
+          style={{
+            margin: "0 auto 20px",
+            padding: 0,
+            border: `2px solid ${C.cardBorder}`,
+            borderRadius: 28,
+            background: "none",
+            cursor: uploading ? "wait" : "pointer",
+            display: "block",
+            opacity: uploading ? 0.7 : 1,
+          }}
+        >
+          <Avatar photoURL={profile.photoURL} size={96} shape="circle" />
+        </button>
         <div style={{ fontFamily: font.display, fontSize: 30, fontWeight: 600, color: C.cream }}>{u.name}</div>
         <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginTop: 6 }}>{u.location}</div>
         <div style={{ display: "flex", gap: space.sm, justifyContent: "center", marginTop: space.md, flexWrap: "wrap" }}>
@@ -881,6 +1022,7 @@ export default function App() {
         hostId: user.uid,
         hostName: profile.name,
         hostHandicap: profile.handicap,
+        hostPhotoURL: profile.photoURL ?? null,
         hostVerified: true,
         course: form.course,
         date: dateFormatted,
@@ -919,6 +1061,7 @@ export default function App() {
       userId: user.uid,
       name: profile.name,
       handicap: profile.handicap,
+      photoURL: profile.photoURL ?? null,
       paymentMethod: profile.paymentMethod ?? "Not linked",
       note: note ?? "",
       createdAt: new Date().toISOString(),
@@ -1065,7 +1208,14 @@ export default function App() {
           {tab === "post" && <HostFlow profile={profile} onPost={handlePost} />}
           {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} onViewApplicants={(t) => setReviewingTeeTime(t)} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
-          {tab === "profile" && <ProfileScreen profile={profile} onSignOut={handleSignOut} />}
+          {tab === "profile" && (
+              <ProfileScreen
+                userId={user.uid}
+                profile={profile}
+                onSignOut={handleSignOut}
+                onPhotoUploaded={(updated) => setProfile(updated)}
+              />
+            )}
         </div>
 
         {/* Bottom nav */}
