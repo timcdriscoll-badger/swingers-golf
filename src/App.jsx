@@ -1456,6 +1456,75 @@ function NotificationSettingsScreen({ userId, profile, onSave, onBack }) {
   );
 }
 
+// ── About Screen ──────────────────────────
+function AboutScreen({ onBack }) {
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+  return (
+    <div style={pagePad}>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          fontFamily: font.body,
+          fontSize: type.caption,
+          color: C.goldDim,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          marginBottom: space.md,
+          padding: 0,
+        }}
+      >
+        ← Back to Profile
+      </button>
+      <h2
+        style={{
+          fontFamily: font.display,
+          fontSize: type.pageTitle,
+          color: C.cream,
+          margin: "0 0 16px",
+          fontWeight: 600,
+        }}
+      >
+        Finding a golf game shouldn't be this hard.
+      </h2>
+      <p
+        style={{
+          fontFamily: font.body,
+          fontSize: type.body,
+          color: C.creamDim,
+          lineHeight: 1.7,
+          margin: "0 0 12px",
+        }}
+      >
+        Tee times are scarce. Groups fall apart. And when you need one more player, you get paired with a stranger you know nothing about.
+      </p>
+      <p
+        style={{
+          fontFamily: font.body,
+          fontSize: type.body,
+          color: C.creamDim,
+          lineHeight: 1.7,
+          margin: "0 0 12px",
+        }}
+      >
+        Swingers fixes that. Post your open tee time or find a game — and match with golfers based on handicap, pace, vibe, and preferences. Both sides say yes before anyone shows up on the first tee.
+      </p>
+      <p
+        style={{
+          fontFamily: font.body,
+          fontSize: type.body,
+          color: C.creamDim,
+          lineHeight: 1.7,
+          margin: "0",
+        }}
+      >
+        Your round. Your group. Your way.
+      </p>
+    </div>
+  );
+}
+
 // ── Profile ────────────────────────────────
 function ProfileScreen({ userId, profile, onSignOut, onProfileUpdated }) {
   const [subScreen, setSubScreen] = useState(null);
@@ -1477,13 +1546,16 @@ function ProfileScreen({ userId, profile, onSignOut, onProfileUpdated }) {
   if (subScreen === "notificationSettings") {
     return <NotificationSettingsScreen userId={userId} profile={profile} onSave={onProfileUpdated} onBack={() => setSubScreen(null)} />;
   }
+  if (subScreen === "about") {
+    return <AboutScreen onBack={() => setSubScreen(null)} />;
+  }
 
   const menuItems = [
     { id: "editProfile", label: "Edit Profile" },
     { id: "notificationSettings", label: "Notification Settings" },
     { label: "Payment Methods" },
     { label: "Round History" },
-    { label: "Help & Support" },
+    { id: "about", label: "Help & Support" },
   ];
 
   return (

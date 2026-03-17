@@ -37,6 +37,7 @@ export default function AuthScreen() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   const inputStyle = {
     fontFamily: font.body,
@@ -298,7 +299,116 @@ export default function AuthScreen() {
             {loading ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
           </button>
         </form>
+
+        <div style={{ marginTop: space.md, textAlign: "center" }}>
+          <button
+            type="button"
+            onClick={() => setShowAbout(true)}
+            style={{
+              fontFamily: font.body,
+              fontSize: 13,
+              color: C.goldDim,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+              textDecorationColor: "rgba(196,180,130,0.4)",
+            }}
+          >
+            About Swingers
+          </button>
+        </div>
       </div>
+
+      {showAbout && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: space.lg,
+            zIndex: 3000,
+          }}
+          onClick={() => setShowAbout(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: C.card,
+              borderRadius: 24,
+              border: `1px solid ${C.cardBorder}`,
+              padding: `${space.lg}px ${space.lg}px ${space.md}px`,
+              boxShadow: "0 24px 48px rgba(0,0,0,0.5)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              style={{
+                fontFamily: font.display,
+                fontSize: 24,
+                color: C.cream,
+                margin: "0 0 16px",
+                fontWeight: 600,
+              }}
+            >
+              Finding a golf game shouldn't be this hard.
+            </h2>
+            <p
+              style={{
+                fontFamily: font.body,
+                fontSize: 15,
+                color: C.creamDim,
+                lineHeight: 1.6,
+                margin: "0 0 12px",
+              }}
+            >
+              Tee times are scarce. Groups fall apart. And when you need one more player, you get paired with a stranger you know nothing about.
+            </p>
+            <p
+              style={{
+                fontFamily: font.body,
+                fontSize: 15,
+                color: C.creamDim,
+                lineHeight: 1.6,
+                margin: "0 0 12px",
+              }}
+            >
+              Swingers fixes that. Post your open tee time or find a game — and match with golfers based on handicap, pace, vibe, and preferences. Both sides say yes before anyone shows up on the first tee.
+            </p>
+            <p
+              style={{
+                fontFamily: font.body,
+                fontSize: 15,
+                color: C.creamDim,
+                lineHeight: 1.6,
+                margin: "0 0 20px",
+              }}
+            >
+              Your round. Your group. Your way.
+            </p>
+            <div style={{ textAlign: "right" }}>
+              <button
+                type="button"
+                onClick={() => setShowAbout(false)}
+                style={{
+                  fontFamily: font.body,
+                  fontSize: 13,
+                  color: C.gold,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
