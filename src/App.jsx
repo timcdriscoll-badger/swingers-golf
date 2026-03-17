@@ -433,18 +433,48 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
 }
 
 // ── Browse Feed (Player Side) ──────────────
+function toLocalDateStr(d) {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const DATE_RANGE_OPTIONS = [
+  { value: 0, label: "Today" },
+  { value: 3, label: "3 Days" },
+  { value: 7, label: "7 Days" },
+  { value: 14, label: "14 Days" },
+  { value: 30, label: "30 Days" },
+];
+
 function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply, onPostFirst }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
+  const [dateRange, setDateRange] = useState(7);
 
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+
+  const todayStr = toLocalDateStr(new Date());
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + (dateRange === 0 ? 0 : dateRange));
+  const endDateStr = toLocalDateStr(endDate);
+
+  const openTeeTimes = teeTimes.filter((t) => {
+    if (t.spotsOpen <= 0) return false;
+    const raw = t.dateRaw;
+    if (!raw || raw < todayStr) return false;
+    if (dateRange === 0) return raw === todayStr;
+    return raw <= endDateStr;
+  });
+
+  const rangeSubtitle =
+    dateRange === 0 ? "Today" : dateRange === 3 ? "Next 3 days" : dateRange === 7 ? "Next 7 days" : dateRange === 14 ? "Next 14 days" : "Next 30 days";
 
   if (loading) {
     return (
       <div style={pagePad}>
         <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>Nashville area · Next 7 days</p>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>Nashville area · {rangeSubtitle}</p>
         <div style={{ display: "flex", justifyContent: "center", padding: `${space.xxl * 2}px 0` }}>
           <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>Loading tee times…</div>
         </div>
@@ -452,12 +482,32 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
     );
   }
 
-  const openTeeTimes = teeTimes.filter(t => t.spotsOpen > 0);
   if (openTeeTimes.length === 0 && !selected) {
     return (
       <div style={pagePad}>
         <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>Nashville area · Next 7 days</p>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Nashville area · {rangeSubtitle}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: 24 }}>
+          {DATE_RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setDateRange(opt.value)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: `1px solid ${dateRange === opt.value ? "rgba(168,148,96,0.4)" : C.cardBorder}`,
+                background: dateRange === opt.value ? C.goldFaint : "transparent",
+                color: dateRange === opt.value ? C.gold : C.goldDim,
+                fontFamily: font.body,
+                fontSize: type.caption,
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <div style={{ textAlign: "center", padding: `${space.xxl * 2}px ${space.pageX}px` }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: space.sm }}>
             <Flag size={52} color={C.goldDim} strokeWidth={1.5} />
@@ -527,7 +577,29 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
   return (
     <div style={pagePad}>
       <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Nashville area · Next 7 days</p>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 16px" }}>Nashville area · {rangeSubtitle}</p>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: space.lg }}>
+        {DATE_RANGE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setDateRange(opt.value)}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 10,
+              border: `1px solid ${dateRange === opt.value ? "rgba(168,148,96,0.4)" : C.cardBorder}`,
+              background: dateRange === opt.value ? C.goldFaint : "transparent",
+              color: dateRange === opt.value ? C.gold : C.goldDim,
+              fontFamily: font.body,
+              fontSize: type.caption,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       {notifications && notifications.length > 0 && (
         <div style={{ marginBottom: space.xl }}>
