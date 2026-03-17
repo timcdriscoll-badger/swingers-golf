@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy, arrayUnion, increment } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy, arrayUnion, increment } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -196,7 +196,7 @@ function ActionButton({ children, primary, danger, small, onClick, disabled, typ
 }
 
 // ── Tee Time Card ──────────────────────────
-function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants, onMessagePlayer, acceptedPlayers: acceptedPlayersProp }) {
+function TeeTimeCard({ teeTime: t, onTap, isHost, isPlaying, onViewApplicants, onMessagePlayer, onCancelTeeTime, onWithdraw, acceptedPlayers: acceptedPlayersProp }) {
   const prefs = [
     { key: "riding", emoji: "🛺", label: "Cart" },
     { key: "walking", icon: Footprints, label: "Walk" },
@@ -301,6 +301,42 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants, onMessagePla
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {isHost && onCancelTeeTime && (
+          <div style={{ marginTop: space.md, paddingTop: space.md, borderTop: `1px solid ${C.cardBorder}` }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCancelTeeTime(t); }}
+              style={{
+                width: "100%",
+                padding: `${space.sm}px ${space.md}px`,
+                fontFamily: font.body, fontSize: type.caption, fontWeight: 600, color: C.red,
+                background: C.redDim, border: `1px solid ${C.red}25`, borderRadius: 12,
+                cursor: "pointer",
+              }}
+            >
+              Cancel tee time
+            </button>
+          </div>
+        )}
+
+        {isPlaying && onWithdraw && (
+          <div style={{ marginTop: space.md, paddingTop: space.md, borderTop: `1px solid ${C.cardBorder}` }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onWithdraw(t); }}
+              style={{
+                width: "100%",
+                padding: `${space.sm}px ${space.md}px`,
+                fontFamily: font.body, fontSize: type.caption, fontWeight: 600, color: C.goldDim,
+                background: "transparent", border: `1px solid ${C.cardBorder}`, borderRadius: 12,
+                cursor: "pointer",
+              }}
+            >
+              Withdraw
+            </button>
           </div>
         )}
       </div>
@@ -836,7 +872,7 @@ function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loadi
 }
 
 // ── My Tee Times ───────────────────────────
-function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessagePlayer }) {
+function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessagePlayer, onCancelTeeTime, onWithdraw }) {
   const [showPastRounds, setShowPastRounds] = useState(false);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
@@ -907,10 +943,10 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
           <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Hosting</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
             {hostingUpcoming.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
+              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} onCancelTeeTime={onCancelTeeTime} />
             ))}
             {showPastRounds && hostingPast.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} />
+              <TeeTimeCard key={t.id} teeTime={t} acceptedPlayers={acceptedPlayersFor(t)} isHost onViewApplicants={onViewApplicants} onMessagePlayer={onMessagePlayer} onCancelTeeTime={onCancelTeeTime} />
             ))}
           </div>
         </section>
@@ -921,10 +957,10 @@ function MyTeeTimes({ userId, teeTimes, conversations, onViewApplicants, onMessa
           <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Playing</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
             {playingUpcoming.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} />
+              <TeeTimeCard key={t.id} teeTime={t} isPlaying onWithdraw={onWithdraw} />
             ))}
             {showPastRounds && playingPast.map((t) => (
-              <TeeTimeCard key={t.id} teeTime={t} />
+              <TeeTimeCard key={t.id} teeTime={t} isPlaying onWithdraw={onWithdraw} />
             ))}
           </div>
         </section>
@@ -1514,6 +1550,44 @@ function Toast({ message, type, onDone }) {
   );
 }
 
+// ── Confirm dialog ────────────────────────
+function ConfirmDialog({ open, title, message, confirmLabel, danger, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 3000,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: space.pageX,
+        background: "rgba(0,0,0,0.6)",
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-title"
+      onClick={onCancel}
+    >
+      <div
+        style={{
+        width: "100%", maxWidth: 360,
+        padding: space.xl,
+        background: C.card,
+        border: `1px solid ${C.cardBorder}`,
+        borderRadius: 20,
+        boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
+      }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="confirm-title" style={{ fontFamily: font.display, fontSize: type.sectionTitle, color: C.cream, margin: "0 0 12px", fontWeight: 600 }}>{title}</h3>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.creamDim, margin: "0 0 24px", lineHeight: 1.5 }}>{message}</p>
+        <div style={{ display: "flex", gap: space.sm }}>
+          <ActionButton onClick={onCancel} style={{ flex: 1 }}>Cancel</ActionButton>
+          <ActionButton primary={!danger} danger={danger} onClick={() => onConfirm()} style={{ flex: 1 }}>{confirmLabel}</ActionButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════
 // ── Main App ──────────────────────────────
 // ═══════════════════════════════════════════
@@ -1530,6 +1604,7 @@ export default function App() {
   const [activeConversation, setActiveConversation] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -1780,6 +1855,69 @@ export default function App() {
     }
   };
 
+  const handleRequestCancelTeeTime = (t) => {
+    const accepted = t.acceptedPlayers ?? [];
+    const message = accepted.length > 0
+      ? `Cancel this tee time? ${accepted.length} player${accepted.length > 1 ? "s" : ""} will be notified.`
+      : "Cancel this tee time? This cannot be undone.";
+    setConfirmDialog({
+      title: "Cancel tee time",
+      message,
+      confirmLabel: "Cancel tee time",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          for (const player of accepted) {
+            await addDoc(collection(db, "notifications"), {
+              userId: player.userId,
+              type: "cancelled",
+              course: t.course,
+              date: t.date,
+              time: t.time,
+              read: false,
+              createdAt: new Date().toISOString(),
+            });
+          }
+          await deleteDoc(doc(db, "teeTimes", t.id));
+          if (reviewingTeeTime?.id === t.id) setReviewingTeeTime(null);
+          showToast("Tee time cancelled.");
+        } catch (err) {
+          showToast(err.message || "Failed to cancel tee time.", "error");
+        }
+        setConfirmDialog(null);
+      },
+    });
+  };
+
+  const handleRequestWithdraw = (t) => {
+    setConfirmDialog({
+      title: "Withdraw from round",
+      message: "Remove yourself from this tee time? The host will be notified.",
+      confirmLabel: "Withdraw",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const accepted = (t.acceptedPlayers ?? []).filter((p) => p.userId !== user.uid);
+          await updateDoc(doc(db, "teeTimes", t.id), { acceptedPlayers: accepted });
+          await addDoc(collection(db, "notifications"), {
+            userId: t.hostId,
+            type: "withdrawn",
+            course: t.course,
+            date: t.date,
+            time: t.time,
+            playerName: profile?.name ?? "A player",
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+          showToast("You have withdrawn from the round.");
+        } catch (err) {
+          showToast(err.message || "Failed to withdraw.", "error");
+        }
+        setConfirmDialog(null);
+      },
+    });
+  };
+
   const handleSendMessage = async (conversationId, text, otherUserId) => {
     try {
       await addDoc(collection(db, "conversations", conversationId, "messages"), {
@@ -1977,7 +2115,7 @@ export default function App() {
               />
             )}
           {tab === "post" && <HostFlow profile={profile} courses={getCoursesForCity(selectedCityKey)} onPost={handlePost} />}
-          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes userId={user.uid} teeTimes={teeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} />}
+          {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes userId={user.uid} teeTimes={teeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} onCancelTeeTime={handleRequestCancelTeeTime} onWithdraw={handleRequestWithdraw} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
           {tab === "messages" && !activeConversation && (
             <ConversationsList
@@ -2052,6 +2190,17 @@ export default function App() {
       </div>
 
       {toast && <Toast {...toast} onDone={() => setToast(null)} />}
+      {confirmDialog && (
+        <ConfirmDialog
+          open
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          danger={confirmDialog.danger}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }
