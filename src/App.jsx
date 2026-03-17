@@ -45,9 +45,26 @@ const COURSES_SAVANNAH = [
   "The Landings - Oakridge",
 ];
 
+const COURSES_BIRMINGHAM = [
+  "Highland Park Golf Course",
+  "RTJ Golf Trail at Ross Bridge",
+  "Oxmoor Valley - Ridge Course",
+  "Oxmoor Valley - Valley Course",
+  "Oxmoor Valley - The Back Yard",
+  "Oak Mountain State Park Golf Course",
+  "Ballantrae Golf Club",
+  "Bent Brook Golf Course - Brook/Windmill/Graveyard",
+  "Roebuck Municipal Golf Course",
+  "Timberline Golf Club",
+  "Limestone Springs Golf Club",
+  "Pine Tree Country Club",
+  "Westside Golf",
+];
+
 const CITIES = [
   { key: "nashville", label: "Nashville, TN", headerLabel: "NASHVILLE", courses: COURSES_NASHVILLE },
   { key: "savannah", label: "Savannah, GA", headerLabel: "SAVANNAH", courses: COURSES_SAVANNAH },
+  { key: "birmingham", label: "Birmingham, AL", headerLabel: "BIRMINGHAM", courses: COURSES_BIRMINGHAM },
 ];
 
 function getCoursesForCity(cityKey) {
