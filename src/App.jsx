@@ -220,6 +220,7 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, isPlaying, onViewApplicants, o
     { key: "music", icon: Music, label: "Music" },
     { key: "drinking", icon: Wine, label: "Drinks" },
     { key: "smoking", icon: Cigarette, label: "Smoke" },
+    { key: "gambling", emoji: "$", label: "Gambling" },
   ];
 
   return (
@@ -366,7 +367,7 @@ function HostFlow({ profile, courses, onPost }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     course: "", date: "", time: "", holes: 18, spotsOpen: 1,
-    riding: true, walking: false, music: false, drinking: false, smoking: false,
+    riding: true, walking: false, music: false, drinking: false, smoking: false, gambling: false,
     pace: "4hr 15min", groupHandicapRange: "Any", note: "",
   });
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -395,7 +396,7 @@ function HostFlow({ profile, courses, onPost }) {
           <ActionButton primary onClick={() => {
             onPost(form);
             setStep(0);
-            setForm({ course: "", date: "", time: "", holes: 18, spotsOpen: 1, riding: true, walking: false, music: false, drinking: false, smoking: false, pace: "4hr 15min", groupHandicapRange: "Any", note: "" });
+            setForm({ course: "", date: "", time: "", holes: 18, spotsOpen: 1, riding: true, walking: false, music: false, drinking: false, smoking: false, gambling: false, pace: "4hr 15min", groupHandicapRange: "Any", note: "" });
           }} style={{ flex: 1 }}>Post Tee Time</ActionButton>
         </div>
       </div>
@@ -455,6 +456,7 @@ function HostFlow({ profile, courses, onPost }) {
           { key: "music", label: "Music OK", icon: Music },
           { key: "drinking", label: "Drinking", icon: Wine },
           { key: "smoking", label: "Smoking", icon: Cigarette },
+          { key: "gambling", label: "Gambling", emoji: "$" },
         ].map(p => {
           const Icon = p.icon;
           return (
@@ -503,7 +505,7 @@ function HostFlow({ profile, courses, onPost }) {
 function PlayerProfileView({ teeTimeId, applicant, profileData, onBack, onAccept, onDecline }) {
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
   const p = profileData || {};
-  const prefs = p.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false };
+  const prefs = p.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false, gambling: false };
   return (
     <div style={pagePad}>
       <button onClick={onBack} style={{
@@ -540,6 +542,7 @@ function PlayerProfileView({ teeTimeId, applicant, profileData, onBack, onAccept
           <PrefIcon active={prefs.music} icon={Music} label="Music" />
           <PrefIcon active={prefs.drinking} icon={Wine} label="Drinks" />
           <PrefIcon active={prefs.smoking} icon={Cigarette} label="Smoke" />
+          <PrefIcon active={prefs.gambling} emoji="$" label="Gambling" />
         </div>
       </div>
       {applicant.note && (
@@ -1285,7 +1288,7 @@ function EditProfileScreen({ userId, profile, onSave, onBack }) {
   const [handicap, setHandicap] = useState(profile?.handicap ?? "");
   const [homeCourse, setHomeCourse] = useState(profile?.homeCourse ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
-  const [preferences, setPreferences] = useState(profile?.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false });
+  const [preferences, setPreferences] = useState(profile?.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false, gambling: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
@@ -1332,6 +1335,7 @@ function EditProfileScreen({ userId, profile, onSave, onBack }) {
     { key: "music", label: "Music OK", icon: Music },
     { key: "drinking", label: "Drinking", icon: Wine },
     { key: "smoking", label: "Smoking", icon: Cigarette },
+    { key: "gambling", label: "Gambling", emoji: "$" },
   ];
 
   return (
@@ -1463,7 +1467,7 @@ function ProfileScreen({ userId, profile, onSignOut, onProfileUpdated }) {
     roundsPlayed: profile.roundsPlayed ?? 0,
     matchRating: profile.matchRating ?? 0,
     noShows: profile.noShows ?? 0,
-    preferences: profile.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false },
+    preferences: profile.preferences ?? { riding: false, walking: false, music: false, drinking: false, smoking: false, gambling: false },
   };
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
 
@@ -1521,6 +1525,7 @@ function ProfileScreen({ userId, profile, onSignOut, onProfileUpdated }) {
           <PrefIcon active={u.preferences.music} icon={Music} label="Music" />
           <PrefIcon active={u.preferences.drinking} icon={Wine} label="Drinks" />
           <PrefIcon active={u.preferences.smoking} icon={Cigarette} label="Smoke" />
+          <PrefIcon active={u.preferences.gambling} emoji="$" label="Gambling" />
         </div>
       </div>
       {menuItems.map((item) => (
@@ -1767,6 +1772,7 @@ export default function App() {
         music: form.music,
         drinking: form.drinking,
         smoking: form.smoking,
+        gambling: form.gambling,
         pace: form.pace,
         groupHandicapRange: form.groupHandicapRange,
         note: form.note ?? "",

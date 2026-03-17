@@ -43,6 +43,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
     music: false,
     drinking: false,
     smoking: false,
+    gambling: false,
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,6 +112,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
     { key: "music", label: "Music OK", icon: Music },
     { key: "drinking", label: "Drinking", icon: Wine },
     { key: "smoking", label: "Smoking", icon: Cigarette },
+    { key: "gambling", label: "Gambling", emoji: "$" },
   ];
 
   return (
