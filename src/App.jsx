@@ -17,6 +17,7 @@ import {
   ChevronRight,
   MessageCircle,
   MessageSquare,
+  ChevronDown,
 } from "lucide-react";
 import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
@@ -26,13 +27,36 @@ import ProfileSetup from "./ProfileSetup";
    SWINGERS — Golf Tee Time Marketplace
    ═══════════════════════════════════════════ */
 
-// ── Course list (used in Post & Profile Setup) ──
+// ── Markets / cities & course lists ──
 const COURSES_NASHVILLE = [
   "Gaylord Springs", "Hermitage Golf Course", "McCabe Golf Course",
   "Ted Rhodes Golf Course", "Harpeth Hills", "Temple Hills",
   "Nashboro Golf Club", "Windtree Golf Course", "The Grove",
   "Greystone Golf Club", "Indian Hills Golf Course",
 ];
+
+const COURSES_SAVANNAH = [
+  "The Landings - Deer Creek",
+  "The Landings - Heron's Pointe",
+  "The Landings - Marshwood",
+  "The Landings - Magnolia",
+  "The Landings - Palmetto",
+  "The Landings - Oakridge",
+];
+
+const CITIES = [
+  { key: "nashville", label: "Nashville, TN", headerLabel: "NASHVILLE", courses: COURSES_NASHVILLE },
+  { key: "savannah", label: "Savannah, GA", headerLabel: "SAVANNAH", courses: COURSES_SAVANNAH },
+];
+
+function getCoursesForCity(cityKey) {
+  const c = CITIES.find((x) => x.key === (cityKey || "nashville"));
+  return c ? c.courses : COURSES_NASHVILLE;
+}
+
+function getCityConfig(cityKey) {
+  return CITIES.find((x) => x.key === (cityKey || "nashville")) || CITIES[0];
+}
 
 // ── Style Constants ────────────────────────
 const C = {
@@ -284,7 +308,7 @@ function TeeTimeCard({ teeTime: t, onTap, isHost, onViewApplicants, onMessagePla
 }
 
 // ── Host Flow (Post Tee Time) ──────────────
-function HostFlow({ profile, onPost }) {
+function HostFlow({ profile, courses, onPost }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     course: "", date: "", time: "", holes: 18, spotsOpen: 1,
@@ -333,7 +357,7 @@ function HostFlow({ profile, onPost }) {
       <div style={{ display: "flex", flexDirection: "column", gap: space.sm, marginBottom: space.lg }}>
         <select value={form.course} onChange={e => update("course", e.target.value)} style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
           <option value="">Select a course...</option>
-          {COURSES_NASHVILLE.map(c => <option key={c} value={c}>{c}</option>)}
+          {(courses || COURSES_NASHVILLE).map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <div style={{ display: "flex", gap: space.sm }}>
           <input type="date" value={form.date} onChange={e => update("date", e.target.value)} style={{ ...inputStyle, flex: 1 }} />
@@ -584,7 +608,7 @@ const DATE_RANGE_OPTIONS = [
   { value: 30, label: "30 Days" },
 ];
 
-function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply, onPostFirst }) {
+function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loading, onApply, onPostFirst }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
@@ -612,7 +636,7 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
     return (
       <div style={pagePad}>
         <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>Nashville area · {rangeSubtitle}</p>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>{cityLabel ?? "Nashville, TN"} · {rangeSubtitle}</p>
         <div style={{ display: "flex", justifyContent: "center", padding: `${space.xxl * 2}px 0` }}>
           <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>Loading tee times…</div>
         </div>
@@ -624,7 +648,7 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
     return (
       <div style={pagePad}>
         <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Nashville area · {rangeSubtitle}</p>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>{cityLabel ?? "Nashville, TN"} · {rangeSubtitle}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: 24 }}>
           {DATE_RANGE_OPTIONS.map((opt) => (
             <button
@@ -715,7 +739,7 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
   return (
     <div style={pagePad}>
       <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 16px" }}>Nashville area · {rangeSubtitle}</p>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 16px" }}>{cityLabel ?? "Nashville, TN"} · {rangeSubtitle}</p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: space.lg }}>
         {DATE_RANGE_OPTIONS.map((opt) => (
@@ -1214,11 +1238,18 @@ export default function App() {
   const [activeConversation, setActiveConversation] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
   const myTeeTimes = useMemo(
     () => (user ? teeTimes.filter((t) => t.hostId === user.uid) : []),
     [teeTimes, user]
+  );
+
+  const selectedCityKey = profile?.city ?? "nashville";
+  const teeTimesForBrowse = useMemo(
+    () => teeTimes.filter((t) => (t.city || "nashville") === selectedCityKey),
+    [teeTimes, selectedCityKey]
   );
 
   const pendingApplicantsCount = useMemo(
@@ -1325,6 +1356,7 @@ export default function App() {
         hostHandicap: profile.handicap,
         hostPhotoURL: profile.photoURL ?? null,
         hostVerified: true,
+        city: profile?.city ?? "nashville",
         course: form.course,
         date: dateFormatted,
         time: timeFormatted,
@@ -1497,6 +1529,17 @@ export default function App() {
     }
   };
 
+  const handleCityChange = async (cityKey) => {
+    if (!user || !cityKey) return;
+    try {
+      await updateDoc(doc(db, "users", user.uid), { city: cityKey });
+      setProfile((prev) => (prev ? { ...prev, city: cityKey } : prev));
+      setCityDropdownOpen(false);
+    } catch (err) {
+      showToast(err.message || "Failed to update city.", "error");
+    }
+  };
+
   const handleSignOut = () => {
     signOut(auth);
   };
@@ -1561,7 +1604,48 @@ export default function App() {
             <Flag size={22} color={C.gold} strokeWidth={2} />
             <span style={{ fontFamily: font.display, fontSize: 22, fontWeight: 600, color: C.gold, letterSpacing: -0.5 }}>Swingers</span>
           </div>
-          <div style={{ fontFamily: font.heading, fontSize: type.overline, letterSpacing: 2.5, color: C.goldDim, textTransform: "uppercase" }}>Nashville</div>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setCityDropdownOpen((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                fontFamily: font.heading, fontSize: type.overline, letterSpacing: 2.5, color: C.goldDim, textTransform: "uppercase",
+                background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
+              }}
+            >
+              {getCityConfig(profile?.city).headerLabel}
+              <ChevronDown size={14} style={{ opacity: cityDropdownOpen ? 0.8 : 0.5 }} />
+            </button>
+            {cityDropdownOpen && (
+              <>
+                <div role="presentation" style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setCityDropdownOpen(false)} />
+                <div style={{
+                  position: "absolute", top: "100%", right: 0, marginTop: 4,
+                  minWidth: 180, padding: space.xs,
+                  background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12,
+                  zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                }}>
+                  {CITIES.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => handleCityChange(c.key)}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left",
+                        padding: `${space.sm}px ${space.md}px`,
+                        fontFamily: font.body, fontSize: type.body, color: (profile?.city || "nashville") === c.key ? C.gold : C.creamDim,
+                        background: (profile?.city || "nashville") === c.key ? C.goldFaint : "transparent",
+                        border: "none", borderRadius: 8, cursor: "pointer",
+                      }}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -1570,14 +1654,15 @@ export default function App() {
               <BrowseFeed
                 userId={user?.uid}
                 profile={profile}
-                teeTimes={teeTimes}
+                teeTimes={teeTimesForBrowse}
+                cityLabel={getCityConfig(selectedCityKey).label}
                 notifications={sortedNotifications}
                 loading={teeTimesLoading}
                 onApply={handleApply}
                 onPostFirst={() => setTab("post")}
               />
             )}
-          {tab === "post" && <HostFlow profile={profile} onPost={handlePost} />}
+          {tab === "post" && <HostFlow profile={profile} courses={getCoursesForCity(selectedCityKey)} onPost={handlePost} />}
           {tab === "myTimes" && !reviewingTeeTime && <MyTeeTimes teeTimes={myTeeTimes} conversations={conversations} onViewApplicants={(t) => setReviewingTeeTime(t)} onMessagePlayer={handleMessagePlayer} />}
           {tab === "myTimes" && reviewingTeeTime && <ApplicantReview teeTime={reviewingTeeTime} onBack={() => setReviewingTeeTime(null)} onAccept={handleAccept} onDecline={handleDecline} />}
           {tab === "messages" && !activeConversation && (

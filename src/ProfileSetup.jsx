@@ -87,6 +87,7 @@ export default function ProfileSetup({ userId, courses, onComplete }) {
         preferences,
         avatar: null,
         location: "Nashville, TN",
+        city: "nashville",
         verified: false,
         paymentLinked: false,
         paymentMethod: "Not linked",
