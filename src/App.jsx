@@ -18,6 +18,7 @@ import {
   MessageCircle,
   MessageSquare,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { auth, db } from "./firebase";
 import AuthScreen from "./AuthScreen";
@@ -608,7 +609,7 @@ const DATE_RANGE_OPTIONS = [
   { value: 30, label: "30 Days" },
 ];
 
-function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loading, onApply, onPostFirst }) {
+function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loading, onApply, onPostFirst, onDismissNotification }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
@@ -763,21 +764,44 @@ function BrowseFeed({ userId, profile, teeTimes, cityLabel, notifications, loadi
         ))}
       </div>
 
-      {notifications && notifications.length > 0 && (
+      {notifications && notifications.filter((n) => !n.read).length > 0 && (
         <div style={{ marginBottom: space.xl }}>
           <SectionLabel>Notifications</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-            {notifications.map((n) => (
+            {notifications.filter((n) => !n.read).map((n) => (
               <div
                 key={n.id}
                 style={{
+                  position: "relative",
                   padding: space.md,
+                  paddingRight: 36,
                   borderRadius: 16,
                   border: `1px solid ${C.cardBorder}`,
                   background: n.type === "accepted" ? C.greenDim : C.card,
                   borderLeft: `4px solid ${n.type === "accepted" ? C.green : C.goldDim}`,
                 }}
               >
+                <button
+                  type="button"
+                  onClick={() => onDismissNotification?.(n.id)}
+                  aria-label="Dismiss"
+                  style={{
+                    position: "absolute",
+                    top: space.sm,
+                    right: space.sm,
+                    padding: 4,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: C.goldDim,
+                    opacity: 0.7,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <X size={16} strokeWidth={2} />
+                </button>
                 <div style={{ fontFamily: font.display, fontSize: type.sectionTitle - 2, fontWeight: 600, color: C.cream, marginBottom: 4 }}>
                   {n.course}
                 </div>
@@ -1337,6 +1361,14 @@ export default function App() {
     }
   };
 
+  const handleDismissNotification = async (notificationId) => {
+    try {
+      await updateDoc(doc(db, "notifications", notificationId), { read: true });
+    } catch (err) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -1717,6 +1749,7 @@ export default function App() {
                 loading={teeTimesLoading}
                 onApply={handleApply}
                 onPostFirst={() => setTab("post")}
+                onDismissNotification={handleDismissNotification}
               />
             )}
           {tab === "post" && <HostFlow profile={profile} courses={getCoursesForCity(selectedCityKey)} onPost={handlePost} />}
