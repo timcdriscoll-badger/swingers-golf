@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy, arrayUnion } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, onSnapshot, updateDoc, writeBatch, query, where, orderBy, arrayUnion, increment } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -1000,9 +1000,15 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const markedReadRef = useRef(false);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px 140px` };
   const otherName = conversation?.hostId === userId ? conversation?.acceptedUserName : conversation?.hostName;
+  const otherUserId = conversation?.participantIds?.find((id) => id !== userId);
   const summary = conversation ? [conversation.course, conversation.date, conversation.time].filter(Boolean).join(" · ") : "";
+
+  useEffect(() => {
+    markedReadRef.current = false;
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -1015,13 +1021,31 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
     return () => unsub();
   }, [conversationId]);
 
+  useEffect(() => {
+    if (!conversationId || !userId || markedReadRef.current) return;
+    markedReadRef.current = true;
+    const messagesRef = collection(db, "conversations", conversationId, "messages");
+    const convRef = doc(db, "conversations", conversationId);
+    getDocs(query(messagesRef, orderBy("timestamp", "asc")))
+      .then((snap) => {
+        const batch = writeBatch(db);
+        batch.update(convRef, { [`unreadByUserId.${userId}`]: 0 });
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.senderId !== userId && !data.read) batch.update(d.ref, { read: true });
+        });
+        return batch.commit();
+      })
+      .catch(() => { markedReadRef.current = false; });
+  }, [conversationId, userId]);
+
   const handleSend = async () => {
     const text = (input || "").trim();
     if (!text || sending) return;
     setSending(true);
     setInput("");
     try {
-      await onSendMessage(conversationId, text);
+      await onSendMessage(conversationId, text, otherUserId);
     } finally {
       setSending(false);
     }
@@ -1282,6 +1306,11 @@ export default function App() {
     [notifications]
   );
 
+  const unreadMessageCount = useMemo(
+    () => (user ? conversations.reduce((sum, c) => sum + (c.unreadByUserId?.[user.uid] || 0), 0) : 0),
+    [conversations, user]
+  );
+
   const sortedNotifications = useMemo(
     () => [...notifications].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     [notifications]
@@ -1462,6 +1491,7 @@ export default function App() {
         acceptedUserId: applicantId,
         acceptedUserName: applicant?.name ?? "Player",
         createdAt: new Date().toISOString(),
+        unreadByUserId: {},
       }, { merge: true });
       if (reviewingTeeTime?.id === teeTimeId)
         setReviewingTeeTime((prev) => ({ ...prev, applicants: newApplicants, spotsOpen: newSpotsOpen }));
@@ -1494,13 +1524,19 @@ export default function App() {
     }
   };
 
-  const handleSendMessage = async (conversationId, text) => {
+  const handleSendMessage = async (conversationId, text, otherUserId) => {
     try {
       await addDoc(collection(db, "conversations", conversationId, "messages"), {
         senderId: user.uid,
         text: text.trim(),
         timestamp: new Date().toISOString(),
+        read: false,
       });
+      if (otherUserId) {
+        await updateDoc(doc(db, "conversations", conversationId), {
+          [`unreadByUserId.${otherUserId}`]: increment(1),
+        });
+      }
     } catch (err) {
       showToast(err.message || "Failed to send.", "error");
     }
@@ -1528,6 +1564,7 @@ export default function App() {
         acceptedUserId: player.userId,
         acceptedUserName: player.name ?? "Player",
         createdAt: new Date().toISOString(),
+        unreadByUserId: {},
       }, { merge: true });
       const newConv = {
         id: convId,
@@ -1721,8 +1758,9 @@ export default function App() {
             const TabIcon = t.icon;
             const showMyTimesBadge = t.id === "myTimes" && pendingApplicantsCount > 0;
             const showBrowseBadge = t.id === "browse" && unreadNotificationCount > 0;
-            const showBadge = showMyTimesBadge || showBrowseBadge;
-            const badgeCount = showMyTimesBadge ? pendingApplicantsCount : unreadNotificationCount;
+            const showMessagesBadge = t.id === "messages" && unreadMessageCount > 0;
+            const showBadge = showMyTimesBadge || showBrowseBadge || showMessagesBadge;
+            const badgeCount = showMyTimesBadge ? pendingApplicantsCount : showBrowseBadge ? unreadNotificationCount : unreadMessageCount;
             return (
               <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); if (t.id !== "messages") setActiveConversation(null); }} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
