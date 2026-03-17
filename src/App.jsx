@@ -756,7 +756,12 @@ function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply
 
 // ── My Tee Times ───────────────────────────
 function MyTeeTimes({ teeTimes, onViewApplicants }) {
+  const [showPastRounds, setShowPastRounds] = useState(false);
   const pagePad = { padding: `${space.pageY}px ${space.pageX}px ${space.contentBottom}px` };
+
+  const todayStr = toLocalDateStr(new Date());
+  const upcoming = teeTimes.filter((t) => !t.dateRaw || t.dateRaw >= todayStr);
+  const past = teeTimes.filter((t) => t.dateRaw && t.dateRaw < todayStr).sort((a, b) => (b.dateRaw || "").localeCompare(a.dateRaw || ""));
 
   if (teeTimes.length === 0) {
     return (
@@ -769,13 +774,66 @@ function MyTeeTimes({ teeTimes, onViewApplicants }) {
       </div>
     );
   }
+
   return (
     <div style={pagePad}>
       <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 8px", fontWeight: 600 }}>My Tee Times</h2>
-      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 28px" }}>Manage your posted rounds</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
-        {teeTimes.map(t => <TeeTimeCard key={t.id} teeTime={t} isHost onViewApplicants={onViewApplicants} />)}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: space.xs, marginBottom: space.lg }}>
+        <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: 0 }}>Manage your posted rounds</p>
+        {past.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowPastRounds((v) => !v)}
+            style={{
+              fontFamily: font.body,
+              fontSize: type.caption,
+              color: showPastRounds ? C.gold : C.goldDim,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: `${space.xs}px ${space.sm}px`,
+              borderRadius: 8,
+              borderBottom: showPastRounds ? `1px solid ${C.gold}` : "1px solid transparent",
+            }}
+          >
+            {showPastRounds ? "Hide past" : "Past Rounds"}
+          </button>
+        )}
       </div>
+
+      {upcoming.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
+          {upcoming.map((t) => (
+            <TeeTimeCard key={t.id} teeTime={t} isHost onViewApplicants={onViewApplicants} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: `${space.xl}px ${space.pageX}px`, background: C.goldFaint, borderRadius: 16, border: `1px solid ${C.cardBorder}` }}>
+          <div style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim }}>No upcoming tee times</div>
+          {past.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowPastRounds(true)}
+              style={{
+                fontFamily: font.body, fontSize: type.caption, color: C.gold, background: "none", border: "none", cursor: "pointer", marginTop: space.sm,
+              }}
+            >
+              View past rounds
+            </button>
+          )}
+        </div>
+      )}
+
+      {showPastRounds && past.length > 0 && (
+        <div style={{ marginTop: space.xl }}>
+          <h3 style={{ fontFamily: font.heading, fontSize: type.caption, letterSpacing: 1.5, textTransform: "uppercase", color: C.goldDim, margin: "0 0 16px" }}>Past Rounds</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
+            {past.map((t) => (
+              <TeeTimeCard key={t.id} teeTime={t} isHost onViewApplicants={onViewApplicants} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
