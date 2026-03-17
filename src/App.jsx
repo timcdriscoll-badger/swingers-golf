@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc, onSnapshot, updateDoc, writeBatch, query, where } from "firebase/firestore";
 import {
   Flag,
   User,
@@ -433,7 +433,7 @@ function ApplicantReview({ teeTime, onBack, onAccept, onDecline }) {
 }
 
 // ── Browse Feed (Player Side) ──────────────
-function BrowseFeed({ userId, profile, teeTimes, loading, onApply, onPostFirst }) {
+function BrowseFeed({ userId, profile, teeTimes, notifications, loading, onApply, onPostFirst }) {
   const [selected, setSelected] = useState(null);
   const [applyNote, setApplyNote] = useState("");
   const [applied, setApplied] = useState({});
@@ -527,7 +527,47 @@ function BrowseFeed({ userId, profile, teeTimes, loading, onApply, onPostFirst }
   return (
     <div style={pagePad}>
       <h2 style={{ fontFamily: font.display, fontSize: type.pageTitle, color: C.cream, margin: "0 0 6px", fontWeight: 600 }}>Open Tee Times</h2>
-      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 32px" }}>Nashville area · Next 7 days</p>
+      <p style={{ fontFamily: font.body, fontSize: type.body, color: C.goldDim, margin: "0 0 24px" }}>Nashville area · Next 7 days</p>
+
+      {notifications && notifications.length > 0 && (
+        <div style={{ marginBottom: space.xl }}>
+          <SectionLabel>Notifications</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+            {notifications.map((n) => (
+              <div
+                key={n.id}
+                style={{
+                  padding: space.md,
+                  borderRadius: 16,
+                  border: `1px solid ${C.cardBorder}`,
+                  background: n.type === "accepted" ? C.greenDim : C.card,
+                  borderLeft: `4px solid ${n.type === "accepted" ? C.green : C.goldDim}`,
+                }}
+              >
+                <div style={{ fontFamily: font.display, fontSize: type.sectionTitle - 2, fontWeight: 600, color: C.cream, marginBottom: 4 }}>
+                  {n.course}
+                </div>
+                <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim, marginBottom: 6 }}>
+                  {n.date} · {n.time}
+                </div>
+                <span
+                  style={{
+                    fontFamily: font.body,
+                    fontSize: type.label,
+                    fontWeight: 600,
+                    color: n.type === "accepted" ? C.green : C.goldDim,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                  }}
+                >
+                  {n.type === "accepted" ? "Accepted" : "Declined"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
         {openTeeTimes.map(t => (
           <TeeTimeCard key={t.id} teeTime={t} onTap={() => setSelected(t)} />
@@ -671,6 +711,7 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [teeTimes, setTeeTimes] = useState([]);
   const [teeTimesLoading, setTeeTimesLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
   const [tab, setTab] = useState("browse");
   const [reviewingTeeTime, setReviewingTeeTime] = useState(null);
   const [toast, setToast] = useState(null);
@@ -684,6 +725,37 @@ export default function App() {
     () => myTeeTimes.reduce((sum, t) => sum + (t.applicants?.length ?? 0), 0),
     [myTeeTimes]
   );
+
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  );
+
+  const sortedNotifications = useMemo(
+    () => [...notifications].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [notifications]
+  );
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setNotifications(list);
+    });
+    return () => unsub();
+  }, [user]);
+
+  const markNotificationsAsRead = async (ids) => {
+    if (!ids.length) return;
+    const batch = writeBatch(db);
+    ids.forEach((id) => batch.update(doc(db, "notifications", id), { read: true }));
+    try {
+      await batch.commit();
+    } catch (err) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -799,6 +871,15 @@ export default function App() {
         applicants: newApplicants,
         spotsOpen: newSpotsOpen,
       });
+      await addDoc(collection(db, "notifications"), {
+        userId: applicantId,
+        type: "accepted",
+        course: t.course,
+        date: t.date,
+        time: t.time,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
       if (reviewingTeeTime?.id === teeTimeId)
         setReviewingTeeTime((prev) => ({ ...prev, applicants: newApplicants, spotsOpen: newSpotsOpen }));
       showToast("Player accepted! They've been notified.");
@@ -813,6 +894,15 @@ export default function App() {
     const newApplicants = (t.applicants ?? []).filter((a) => a.id !== applicantId);
     try {
       await updateDoc(doc(db, "teeTimes", teeTimeId), { applicants: newApplicants });
+      await addDoc(collection(db, "notifications"), {
+        userId: applicantId,
+        type: "declined",
+        course: t.course,
+        date: t.date,
+        time: t.time,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
       if (reviewingTeeTime?.id === teeTimeId)
         setReviewingTeeTime((prev) => ({ ...prev, applicants: newApplicants }));
       showToast("Player passed.", "error");
@@ -824,6 +914,13 @@ export default function App() {
   const handleSignOut = () => {
     signOut(auth);
   };
+
+  useEffect(() => {
+    if (tab === "browse" && unreadNotificationCount > 0) {
+      const ids = notifications.filter((n) => !n.read).map((n) => n.id);
+      markNotificationsAsRead(ids);
+    }
+  }, [tab, notifications, unreadNotificationCount]);
 
   if (authLoading) {
     return (
@@ -887,6 +984,7 @@ export default function App() {
                 userId={user?.uid}
                 profile={profile}
                 teeTimes={teeTimes}
+                notifications={sortedNotifications}
                 loading={teeTimesLoading}
                 onApply={handleApply}
                 onPostFirst={() => setTab("post")}
@@ -907,7 +1005,10 @@ export default function App() {
         }}>
           {tabs.map(t => {
             const TabIcon = t.icon;
-            const showBadge = t.id === "myTimes" && pendingApplicantsCount > 0;
+            const showMyTimesBadge = t.id === "myTimes" && pendingApplicantsCount > 0;
+            const showBrowseBadge = t.id === "browse" && unreadNotificationCount > 0;
+            const showBadge = showMyTimesBadge || showBrowseBadge;
+            const badgeCount = showMyTimesBadge ? pendingApplicantsCount : unreadNotificationCount;
             return (
               <button key={t.id} onClick={() => { setTab(t.id); setReviewingTeeTime(null); }} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
@@ -925,7 +1026,7 @@ export default function App() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       padding: "0 5px", boxSizing: "border-box",
                     }}>
-                      {pendingApplicantsCount > 99 ? "99+" : pendingApplicantsCount}
+                      {badgeCount > 99 ? "99+" : badgeCount}
                     </span>
                   )}
                 </span>
