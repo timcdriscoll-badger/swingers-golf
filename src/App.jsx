@@ -990,6 +990,7 @@ function ConversationsList({ userId, conversations, loading, onSelectConversatio
         {sorted.map((conv) => {
           const otherName = conv.hostId === userId ? conv.acceptedUserName : conv.hostName;
           const summary = [conv.course, conv.date, conv.time].filter(Boolean).join(" · ") || "Tee time";
+          const hasUnread = (conv.unreadByUserId?.[userId] || 0) > 0;
           return (
             <button
               key={conv.id}
@@ -1008,9 +1009,24 @@ function ConversationsList({ userId, conversations, loading, onSelectConversatio
             >
               <Avatar size={48} shape="circle" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: font.display, fontSize: type.cardTitle, color: C.cream, marginBottom: 2 }}>{otherName || "Player"}</div>
+                <div style={{
+                  fontFamily: font.display,
+                  fontSize: type.cardTitle,
+                  color: C.cream,
+                  marginBottom: 2,
+                  fontWeight: hasUnread ? 700 : 600,
+                }}>{otherName || "Player"}</div>
                 <div style={{ fontFamily: font.body, fontSize: type.caption, color: C.goldDim }}>{summary}</div>
               </div>
+              {hasUnread && (
+                <div style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  background: C.green,
+                  flexShrink: 0,
+                }} aria-hidden />
+              )}
               <ChevronRight size={18} color={C.goldDim} />
             </button>
           );
