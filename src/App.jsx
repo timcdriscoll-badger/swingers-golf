@@ -913,7 +913,7 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const pagePad = { padding: `${space.pageY}px ${space.pageX}px 100px` };
+  const pagePad = { padding: `${space.pageY}px ${space.pageX}px 140px` };
   const otherName = conversation?.hostId === userId ? conversation?.acceptedUserName : conversation?.hostName;
   const summary = conversation ? [conversation.course, conversation.date, conversation.time].filter(Boolean).join(" · ") : "";
 
@@ -995,27 +995,35 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
       <div
         style={{
           position: "fixed",
-          bottom: 0,
+          bottom: "calc(72px + var(--sab, 0px))",
           left: "50%",
           transform: "translateX(-50%)",
           width: "100%",
           maxWidth: 460,
-          padding: `${space.sm}px ${space.pageX}px calc(${space.sm}px + var(--sab, 0px))`,
+          padding: `${space.sm}px ${space.pageX}px`,
           background: C.bg,
           borderTop: `1px solid ${C.cardBorder}`,
           display: "flex",
           gap: space.sm,
           alignItems: "center",
+          zIndex: 200,
         }}
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder="Type a message…"
+          autoComplete="off"
           style={{
             flex: 1,
+            minWidth: 0,
             padding: `${space.sm}px ${space.md}px`,
             fontFamily: font.body,
             fontSize: type.body,
@@ -1024,11 +1032,14 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
             border: `1px solid ${C.cardBorder}`,
             borderRadius: 12,
             outline: "none",
+            WebkitAppearance: "none",
+            appearance: "none",
           }}
+          aria-label="Message input"
         />
         <button
           type="button"
-          onClick={handleSend}
+          onClick={() => handleSend()}
           disabled={sending || !input.trim()}
           style={{
             padding: `${space.sm}px ${space.md}px`,
@@ -1041,6 +1052,7 @@ function ChatThread({ conversationId, conversation, userId, onBack, onSendMessag
             borderRadius: 12,
             cursor: input.trim() && !sending ? "pointer" : "default",
             opacity: input.trim() && !sending ? 1 : 0.5,
+            flexShrink: 0,
           }}
         >
           Send
